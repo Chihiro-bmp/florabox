@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
+import CardGalleryPage from './pages/CardGalleryPage'
 import CardBuilder from './pages/CardBuilder'
 import BouquetBuilder from './pages/BouquetBuilder'
 import CardView from './pages/CardView'
@@ -11,6 +12,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/gallery" element={<CardGalleryPage />} />
         <Route path="/card/new" element={<CardBuilder />} />
         <Route path="/bouquet/new" element={<BouquetBuilder />} />
         <Route path="/view/:id" element={<CardView />} />
