@@ -2,29 +2,33 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 
-// --- Detect touch/hover capability ---
 const isTouch = () => window.matchMedia('(hover: none)').matches
 
-// --- Petal canvas system ---
-const PETAL_COUNT = 22
+// ─── Petal system ────────────────────────────────────────────────────────────
 const PETAL_COLORS = ['#c9788a','#d4909e','#e8b4bc','#c47a6e','#d4a090','#b8848c']
 
-function initPetals(w, h) {
-  return Array.from({ length: PETAL_COUNT }, (_, i) => ({
-    x: Math.random() * w * 1.2 - w * 0.1,
-    y: Math.random() * h,
-    vx: 0.4 + Math.random() * 0.7,
-    vy: -0.05 + Math.random() * 0.18,
+function makePetal(w, h, fromX, fromY, burst = false) {
+  const angle = Math.random() * Math.PI * 2
+  const speed = burst ? 2.5 + Math.random() * 3.5 : 0.4 + Math.random() * 0.7
+  return {
+    x: fromX ?? (Math.random() * w * 1.2 - w * 0.1),
+    y: fromY ?? (Math.random() * h),
+    // burst petals explode outward then settle into the drift
+    vx: burst ? Math.cos(angle) * speed : speed,
+    vy: burst ? Math.sin(angle) * speed : -0.05 + Math.random() * 0.18,
+    // after burst, petals slow to normal drift speed
+    burstDecay: burst ? 0.92 : 1,
+    burstDone: !burst,
     angle: Math.random() * Math.PI * 2,
     angleV: (Math.random() - 0.5) * 0.018,
     sway: Math.random() * Math.PI * 2,
     swaySpeed: 0.005 + Math.random() * 0.008,
     swayAmp: 0.25 + Math.random() * 0.45,
-    size: 5 + Math.random() * 9,
-    opacity: 0.25 + Math.random() * 0.45,
-    color: PETAL_COLORS[i % PETAL_COLORS.length],
-    type: i % 3,
-  }))
+    size: burst ? 4 + Math.random() * 7 : 5 + Math.random() * 9,
+    opacity: burst ? 0.55 + Math.random() * 0.35 : 0.25 + Math.random() * 0.45,
+    color: PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)],
+    type: Math.floor(Math.random() * 3),
+  }
 }
 
 function drawPetal(ctx, p) {
@@ -47,36 +51,47 @@ function drawPetal(ctx, p) {
   ctx.restore()
 }
 
-function PetalCanvas() {
+function PetalCanvas({ onCanvasRef }) {
   const canvasRef = useRef(null)
-  const petalsRef = useRef(null)
+  const petalsRef = useRef([])
   const rafRef = useRef(null)
   const dimsRef = useRef({ w: 0, h: 0 })
 
   useEffect(() => {
     const canvas = canvasRef.current
+    onCanvasRef(canvas, petalsRef, dimsRef)
     const ctx = canvas.getContext('2d')
 
     const setSize = () => {
-      const w = window.innerWidth
-      const h = window.innerHeight
-      canvas.width = w
-      canvas.height = h
+      const w = window.innerWidth, h = window.innerHeight
+      canvas.width = w; canvas.height = h
       dimsRef.current = { w, h }
-      // Re-init petals on resize so they spread across new dimensions
-      petalsRef.current = initPetals(w, h)
+      // Keep existing petals, just add new ones to fill new space
+      const base = Array.from({ length: 22 }, () => makePetal(w, h))
+      petalsRef.current = base
     }
-
     setSize()
 
     const tick = () => {
       const { w, h } = dimsRef.current
       ctx.clearRect(0, 0, w, h)
       petalsRef.current.forEach(p => {
+        // Burst decay — slow burst petals toward normal drift
+        if (!p.burstDone) {
+          p.vx *= p.burstDecay
+          p.vy *= p.burstDecay
+          // Once speed is close to normal drift, lock into drift mode
+          if (Math.abs(p.vx) < 1.2 && Math.abs(p.vy) < 0.8) {
+            p.vx = 0.4 + Math.random() * 0.5
+            p.vy = -0.05 + Math.random() * 0.15
+            p.burstDone = true
+          }
+        }
         p.sway += p.swaySpeed
-        p.x += p.vx + Math.sin(p.sway) * p.swayAmp
-        p.y += p.vy + Math.cos(p.sway * 0.7) * 0.15
+        p.x += p.vx + (p.burstDone ? Math.sin(p.sway) * p.swayAmp : 0)
+        p.y += p.vy + (p.burstDone ? Math.cos(p.sway * 0.7) * 0.15 : 0)
         p.angle += p.angleV
+        // Wrap around
         if (p.x > w + 20) { p.x = -20; p.y = Math.random() * h }
         if (p.y < -20) p.y = h + 20
         if (p.y > h + 20) p.y = -20
@@ -88,7 +103,6 @@ function PetalCanvas() {
 
     window.addEventListener('resize', setSize)
     window.addEventListener('orientationchange', () => setTimeout(setSize, 120))
-
     return () => {
       cancelAnimationFrame(rafRef.current)
       window.removeEventListener('resize', setSize)
@@ -97,22 +111,50 @@ function PetalCanvas() {
   }, [])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }}
-    />
+    <canvas ref={canvasRef}
+      style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }} />
   )
 }
 
-// --- Ink blossom SVG background ---
-function BlossomBackground() {
+// ─── Branch paths (same as before, extracted for reuse) ──────────────────────
+const BRANCH_PATHS = [
+  // Main trunk
+  "M -10,820 C 60,760 130,700 200,640 C 270,580 310,530 340,480 C 370,430 375,390 360,340",
+  // Sub-branch 1
+  "M 200,640 C 260,600 330,570 400,530 C 460,498 520,470 580,430",
+  // Sub-branch 1b
+  "M 400,530 C 440,500 470,465 500,420 C 520,392 530,368 525,340",
+  // Sub-branch 2
+  "M 280,560 C 320,535 365,515 410,500 C 445,488 480,482 515,478",
+  // Twig 1
+  "M 340,480 C 350,455 355,425 345,395 C 338,372 325,355 315,335",
+  // Twig 2
+  "M 360,340 C 375,315 395,295 415,272 C 430,255 445,240 452,218",
+  // Twig 3
+  "M 525,340 C 535,315 548,292 558,268 C 566,248 570,228 565,205",
+  // Twig 4
+  "M 580,430 C 610,408 645,390 678,368 C 702,352 722,335 735,310",
+  // Fine tips
+  "M 315,335 C 308,318 298,302 285,288",
+  "M 315,335 C 322,316 328,298 332,278",
+  "M 452,218 C 445,200 438,182 428,165",
+  "M 452,218 C 462,200 472,182 480,162",
+  // Right corner branch
+  "M 1440,120 C 1380,150 1310,185 1240,225 C 1185,258 1138,290 1095,320",
+  "M 1240,225 C 1210,258 1182,292 1158,328 C 1140,355 1128,380 1120,408",
+  "M 1095,320 C 1070,348 1048,378 1030,410",
+  "M 1158,328 C 1145,355 1130,380 1115,405",
+  "M 1300,200 C 1285,228 1268,255 1248,278",
+]
+
+const BRANCH_WIDTHS = [8,5.5,3.5,3,2.5,2,1.8,2.2,1.4,1.4,1.2,1.2,5,3.2,2,1.5,1.8]
+
+// ─── Blossom background with animated branch draw-in ─────────────────────────
+function BlossomBackground({ drawProgress }) {
   return (
-    <svg
-      viewBox="0 0 1440 900"
-      xmlns="http://www.w3.org/2000/svg"
+    <svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg"
       preserveAspectRatio="xMidYMid slice"
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }}
-    >
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }}>
       <defs>
         <filter id="paper" x="0%" y="0%" width="100%" height="100%">
           <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
@@ -133,79 +175,80 @@ function BlossomBackground() {
         </radialGradient>
       </defs>
 
+      {/* Parchment */}
       <rect width="1440" height="900" fill="url(#parchment)"/>
       <rect width="1440" height="900" fill="url(#lightpool)"/>
       <rect width="1440" height="900" fill="url(#parchment)" filter="url(#paper)" opacity="0.08"/>
 
-      {/* Main branch — bottom-left rising */}
-      <path d="M -10,820 C 60,760 130,700 200,640 C 270,580 310,530 340,480 C 370,430 375,390 360,340"
-        stroke="#2a1a0e" strokeWidth="8" fill="none" strokeLinecap="round" filter="url(#inkblur)" opacity="0.82"/>
-      <path d="M -10,820 C 60,760 130,700 200,640 C 270,580 310,530 340,480 C 370,430 375,390 360,340"
-        stroke="#3d2510" strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.5"/>
-      <path d="M 200,640 C 260,600 330,570 400,530 C 460,498 520,470 580,430"
-        stroke="#2a1a0e" strokeWidth="5.5" fill="none" strokeLinecap="round" filter="url(#inkblur)" opacity="0.78"/>
-      <path d="M 400,530 C 440,500 470,465 500,420 C 520,392 530,368 525,340"
-        stroke="#2a1a0e" strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.7"/>
-      <path d="M 280,560 C 320,535 365,515 410,500 C 445,488 480,482 515,478"
-        stroke="#2a1a0e" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.65"/>
-      <path d="M 340,480 C 350,455 355,425 345,395 C 338,372 325,355 315,335"
-        stroke="#2a1a0e" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.68"/>
-      <path d="M 360,340 C 375,315 395,295 415,272 C 430,255 445,240 452,218"
-        stroke="#2a1a0e" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.6"/>
-      <path d="M 525,340 C 535,315 548,292 558,268 C 566,248 570,228 565,205"
-        stroke="#2a1a0e" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.55"/>
-      <path d="M 580,430 C 610,408 645,390 678,368 C 702,352 722,335 735,310"
-        stroke="#2a1a0e" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.58"/>
-      <path d="M 315,335 C 308,318 298,302 285,288" stroke="#2a1a0e" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.5"/>
-      <path d="M 315,335 C 322,316 328,298 332,278" stroke="#2a1a0e" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.5"/>
-      <path d="M 452,218 C 445,200 438,182 428,165" stroke="#2a1a0e" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.45"/>
-      <path d="M 452,218 C 462,200 472,182 480,162" stroke="#2a1a0e" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.45"/>
+      {/* Ghost branches — faint outline always visible */}
+      {BRANCH_PATHS.map((d, i) => (
+        <path key={`ghost_${i}`} d={d} stroke="#2a1a0e"
+          strokeWidth={BRANCH_WIDTHS[i] || 2} fill="none" strokeLinecap="round"
+          opacity="0.06"/>
+      ))}
 
-      {/* Right corner branch */}
-      <path d="M 1440,120 C 1380,150 1310,185 1240,225 C 1185,258 1138,290 1095,320"
-        stroke="#2a1a0e" strokeWidth="5" fill="none" strokeLinecap="round" filter="url(#inkblur)" opacity="0.62"/>
-      <path d="M 1240,225 C 1210,258 1182,292 1158,328 C 1140,355 1128,380 1120,408"
-        stroke="#2a1a0e" strokeWidth="3.2" fill="none" strokeLinecap="round" opacity="0.55"/>
-      <path d="M 1095,320 C 1070,348 1048,378 1030,410" stroke="#2a1a0e" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.48"/>
-      <path d="M 1158,328 C 1145,355 1130,380 1115,405" stroke="#2a1a0e" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.42"/>
-      <path d="M 1300,200 C 1285,228 1268,255 1248,278" stroke="#2a1a0e" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.45"/>
+      {/* Ink branches — drawn in via strokeDashoffset animation */}
+      {BRANCH_PATHS.map((d, i) => {
+        // Stagger each branch slightly — main branches draw first
+        const start = i < 4 ? 0 : i < 8 ? 0.15 : 0.3
+        const localProgress = Math.max(0, Math.min(1, (drawProgress - start) / (1 - start)))
+        return (
+          <path key={`ink_${i}`} d={d}
+            stroke={i === 0 ? "#2a1a0e" : "#2a1a0e"}
+            strokeWidth={BRANCH_WIDTHS[i] || 2} fill="none" strokeLinecap="round"
+            filter={i < 4 ? "url(#inkblur)" : undefined}
+            opacity={i < 2 ? 0.82 * localProgress : i < 6 ? 0.65 * localProgress : 0.5 * localProgress}
+            style={{
+              strokeDasharray: 2000,
+              strokeDashoffset: 2000 * (1 - localProgress),
+            }}
+          />
+        )
+      })}
 
-      {/* Blossoms — main branch */}
+      {/* Blossoms — fade in after branches */}
       {[
         [362,338,1.1],[348,393,0.95],[318,332,0.9],[288,286,0.85],[332,276,0.8],
         [455,216,1.05],[430,163,0.88],[480,160,0.82],[415,270,0.92],[528,338,0.88],
         [566,203,0.78],[525,476,0.92],[500,418,0.85],[518,478,0.78],[580,428,0.9],
         [737,308,0.82],[580,348,0.75],[410,498,0.88],
-      ].map(([cx,cy,s],i) => (
-        <g key={`b1_${i}`} transform={`translate(${cx},${cy}) scale(${s})`}>
-          {[0,72,144,216,288].map((a,j) => {
-            const rad = a * Math.PI / 180
-            const px = Math.cos(rad)*9, py = Math.sin(rad)*9
-            return <ellipse key={j} cx={px} cy={py} rx="5.5" ry="3.2"
-              fill={i%4===0?'#c97888':i%4===1?'#d4909e':i%4===2?'#e8b8c4':'#bf7080'}
-              opacity="0.88" transform={`rotate(${a+90},${px},${py})`}/>
-          })}
-          <circle r="3.5" fill="#f0d080" opacity="0.9"/>
-          <circle r="1.5" fill="#c87840" opacity="0.85"/>
-          {[0,60,120,180,240,300].map((a,j) => {
-            const rad = a*Math.PI/180
-            return <line key={j} x1={Math.cos(rad)*2} y1={Math.sin(rad)*2}
-              x2={Math.cos(rad)*6} y2={Math.sin(rad)*6} stroke="#8a4820" strokeWidth="0.5" opacity="0.6"/>
-          })}
-        </g>
-      ))}
+      ].map(([cx,cy,s],i) => {
+        const blossomProgress = Math.max(0, (drawProgress - 0.5) / 0.5)
+        return (
+          <g key={`b1_${i}`} transform={`translate(${cx},${cy}) scale(${s})`}
+            opacity={blossomProgress}>
+            {[0,72,144,216,288].map((a,j) => {
+              const rad = a * Math.PI / 180
+              const px = Math.cos(rad)*9, py = Math.sin(rad)*9
+              return <ellipse key={j} cx={px} cy={py} rx="5.5" ry="3.2"
+                fill={i%4===0?'#c97888':i%4===1?'#d4909e':i%4===2?'#e8b8c4':'#bf7080'}
+                opacity="0.88" transform={`rotate(${a+90},${px},${py})`}/>
+            })}
+            <circle r="3.5" fill="#f0d080" opacity="0.9"/>
+            <circle r="1.5" fill="#c87840" opacity="0.85"/>
+            {[0,60,120,180,240,300].map((a,j) => {
+              const rad = a*Math.PI/180
+              return <line key={j} x1={Math.cos(rad)*2} y1={Math.sin(rad)*2}
+                x2={Math.cos(rad)*6} y2={Math.sin(rad)*6}
+                stroke="#8a4820" strokeWidth="0.5" opacity="0.6"/>
+            })}
+          </g>
+        )
+      })}
 
       {/* Buds */}
       {[[375,390],[350,454],[400,528],[470,464],[540,400],[560,268],[490,215]].map(([cx,cy],i) => (
-        <g key={`bud${i}`} transform={`translate(${cx},${cy})`}>
+        <g key={`bud${i}`} transform={`translate(${cx},${cy})`}
+          opacity={Math.max(0, (drawProgress - 0.5) / 0.5)}>
           <ellipse rx="3.5" ry="5.5" fill={i%2===0?'#c97888':'#d4a0a8'} opacity="0.8"/>
           <path d="M0,-5 C2,-3 2,0 0,3" stroke="#2a1a0e" strokeWidth="0.8" fill="none" opacity="0.5"/>
         </g>
       ))}
 
-      {/* Blossoms — right branch */}
+      {/* Right branch blossoms */}
       {[[1095,318,0.9],[1120,406,0.85],[1160,326,0.88],[1116,403,0.78],[1030,408,0.82],[1250,276,0.75],[1300,198,0.8],[1240,224,0.85]].map(([cx,cy,s],i) => (
-        <g key={`b2_${i}`} transform={`translate(${cx},${cy}) scale(${s})`}>
+        <g key={`b2_${i}`} transform={`translate(${cx},${cy}) scale(${s})`}
+          opacity={Math.max(0, (drawProgress - 0.6) / 0.4)}>
           {[0,72,144,216,288].map((a,j) => {
             const rad = a*Math.PI/180
             const px = Math.cos(rad)*9, py = Math.sin(rad)*9
@@ -222,7 +265,8 @@ function BlossomBackground() {
       {[[180,865,22],[320,880,14],[480,872,18],[620,868,12],[760,875,16],[900,870,20],[1050,878,13],[1200,865,17]].map(([x,y,s],i) => (
         <ellipse key={`fp${i}`} cx={x} cy={y} rx={s*0.4} ry={s*0.22}
           fill={i%3===0?'#c97888':i%3===1?'#d4a0a8':'#e8c0c8'}
-          opacity={0.18+i%3*0.06} transform={`rotate(${i*28},${x},${y})`}/>
+          opacity={(0.18+i%3*0.06) * Math.max(0,(drawProgress-0.7)/0.3)}
+          transform={`rotate(${i*28},${x},${y})`}/>
       ))}
 
       <ellipse cx="200" cy="720" rx="280" ry="200" fill="#c8a878" opacity="0.04" filter="url(#softglow)"/>
@@ -230,7 +274,7 @@ function BlossomBackground() {
   )
 }
 
-// --- Icons ---
+// ─── Icons ────────────────────────────────────────────────────────────────────
 function CardIcon({ type }) {
   if (type === 'card') return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
@@ -263,14 +307,36 @@ const actions = [
   { type:'archive', label:'My creations',       desc:'Everything you\'ve sent, in one place',               path:'/u/me' },
 ]
 
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function Home() {
   const navigate = useNavigate()
   const [touch] = useState(() => isTouch())
+  const [drawProgress, setDrawProgress] = useState(0)
+  const canvasRef = useRef(null)
+  const petalsRef = useRef([])
+  const dimsRef = useRef({ w: 0, h: 0 })
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const springX = useSpring(mouseX, { stiffness: 20, damping: 16 })
   const springY = useSpring(mouseY, { stiffness: 20, damping: 16 })
 
+  // Branch draw-in animation — runs once on mount
+  useEffect(() => {
+    const duration = 5000 // 5 seconds
+    const start = performance.now()
+    let raf
+    const animate = (now) => {
+      const t = Math.min((now - start) / duration, 1)
+      // Ease in-out cubic
+      const eased = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2
+      setDrawProgress(eased)
+      if (t < 1) raf = requestAnimationFrame(animate)
+    }
+    raf = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // Parallax on desktop
   useEffect(() => {
     if (touch) return
     const onMove = e => {
@@ -281,27 +347,60 @@ export default function Home() {
     return () => window.removeEventListener('mousemove', onMove)
   }, [touch])
 
-  return (
-    <div style={{
-      position: 'relative',
-      width: '100vw',
-      height: '100dvh', // dvh accounts for mobile browser chrome
-      overflow: 'hidden',
-      fontFamily: "'Jost', sans-serif",
-      background: '#ede0cc',
-    }}>
+  // Click/tap to burst petals — background only
+  const handleBackgroundClick = (e) => {
+    // Ignore if clicking on a card/button
+    if (e.target.closest('button')) return
+    const x = e.clientX ?? e.touches?.[0]?.clientX
+    const y = e.clientY ?? e.touches?.[0]?.clientY
+    if (x == null || !petalsRef.current) return
+    const burst = Array.from({ length: 9 }, () =>
+      makePetal(dimsRef.current.w, dimsRef.current.h, x, y, true)
+    )
+    petalsRef.current = [...petalsRef.current, ...burst]
+  }
 
-      {/* Parallax background — disabled on touch */}
+  // Title and cards appear overlapping with branch draw — starts at 72% progress
+  const uiOpacity = Math.max(0, (drawProgress - 0.72) / 0.28)
+  const cardsOpacity = Math.max(0, (drawProgress - 0.80) / 0.20)
+
+  return (
+    <div
+      onClick={handleBackgroundClick}
+      onTouchStart={handleBackgroundClick}
+      style={{
+        position: 'relative', width: '100vw', height: '100dvh',
+        overflow: 'hidden', fontFamily: "'Jost', sans-serif",
+        background: '#ede0cc', cursor: 'default',
+      }}
+    >
+      {/* Parallax background */}
       <motion.div style={{
         position: 'absolute', inset: '-2%',
         x: touch ? 0 : springX,
         y: touch ? 0 : springY,
         zIndex: 1,
       }}>
-        <BlossomBackground />
+        <BlossomBackground drawProgress={drawProgress} />
       </motion.div>
 
-      <PetalCanvas />
+      {/* Petal canvas */}
+      <PetalCanvas onCanvasRef={(canvas, petals, dims) => {
+        canvasRef.current = canvas
+        petalsRef.current = petals.current
+        dimsRef.current = dims.current
+        // Sync refs so click handler always has latest
+        Object.defineProperty(petalsRef, 'current', {
+          get: () => petals.current,
+          set: v => { petals.current = v },
+          configurable: true,
+        })
+        Object.defineProperty(dimsRef, 'current', {
+          get: () => dims.current,
+          set: v => { dims.current = v },
+          configurable: true,
+        })
+      }} />
 
       {/* Vignette */}
       <div style={{
@@ -315,23 +414,14 @@ export default function Home() {
         width: '100%', height: '100%',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'space-between',
-        padding: 'clamp(2rem, 5vh, 3.8rem) clamp(1rem, 4vw, 2rem) clamp(1.5rem, 4vh, 2.8rem)',
+        padding: 'clamp(2rem,5vh,3.8rem) clamp(1rem,4vw,2rem) clamp(1.5rem,4vh,2.8rem)',
         boxSizing: 'border-box',
+        pointerEvents: 'none', // let clicks fall through to background
       }}>
 
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-          style={{ textAlign: 'center' }}
-        >
-          <motion.div
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ delay: 0.8, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            style={{ marginBottom: '0.55rem' }}
-          >
+        {/* Header — fades in as branches near completion */}
+        <div style={{ textAlign: 'center', opacity: uiOpacity, transition: 'none', pointerEvents: 'none' }}>
+          <div style={{ marginBottom: '0.55rem' }}>
             <svg width="130" height="18" viewBox="0 0 160 18" fill="none"
               style={{ display: 'block', margin: '0 auto' }}>
               <path d="M4,9 C12,5 28,4 50,9" stroke="#3d2510" strokeWidth="0.8" fill="none" opacity="0.45" strokeLinecap="round"/>
@@ -349,48 +439,38 @@ export default function Home() {
               <ellipse cx="35" cy="7" rx="2" ry="3" fill="#c97888" opacity="0.45" transform="rotate(-20,35,7)"/>
               <ellipse cx="125" cy="7" rx="2" ry="3" fill="#c97888" opacity="0.45" transform="rotate(20,125,7)"/>
             </svg>
-          </motion.div>
+          </div>
 
           <h1 style={{
             fontFamily: "'Cormorant Garamond', serif",
             fontSize: 'clamp(3.2rem, 9.5vw, 7.5rem)',
-            fontWeight: 300,
-            letterSpacing: '0.1em',
-            color: '#1e1008',
-            lineHeight: 1,
+            fontWeight: 300, letterSpacing: '0.1em',
+            color: '#1e1008', lineHeight: 1,
             textShadow: '0 1px 18px rgba(245,235,210,0.5)',
           }}>
             Florabox
           </h1>
 
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.1, duration: 1.1 }}
-            style={{
-              fontFamily: "'Jost', sans-serif",
-              fontSize: 'clamp(0.58rem, 1.3vw, 0.82rem)',
-              fontWeight: 300,
-              letterSpacing: 'clamp(0.12em, 1.5vw, 0.28em)',
-              textTransform: 'uppercase',
-              color: '#3d2510',
-              marginTop: '0.9rem',
-              opacity: 0.72,
-            }}
-          >
+          <p style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: 'clamp(0.58rem, 1.3vw, 0.82rem)',
+            fontWeight: 300,
+            letterSpacing: 'clamp(0.12em, 1.5vw, 0.28em)',
+            textTransform: 'uppercase', color: '#3d2510',
+            marginTop: '0.9rem', opacity: 0.72,
+          }}>
             Send a little joy today
-          </motion.p>
-        </motion.div>
+          </p>
+        </div>
 
         {/* Action cards */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column', // stack vertically by default (mobile-first)
-          gap: '0.65rem',
-          width: '100%',
-          maxWidth: '860px',
-        }}
-          // On wider screens, switch to row via inline style + a CSS trick
+        <div
+          style={{
+            display: 'flex', flexDirection: 'column',
+            gap: '0.65rem', width: '100%', maxWidth: '860px',
+            opacity: cardsOpacity, transition: 'none',
+            pointerEvents: cardsOpacity > 0.5 ? 'auto' : 'none',
+          }}
           ref={el => {
             if (!el) return
             const mq = window.matchMedia('(min-width: 640px)')
@@ -406,72 +486,49 @@ export default function Home() {
           {actions.map((a, i) => (
             <motion.button
               key={a.type}
-              initial={{ opacity: 0, y: 48 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileHover={touch ? {} : { y: -5, scale: 1.022 }}
+              whileTap={{ scale: 0.975 }}
               transition={{
-                delay: 0.5 + i * 0.13,
-                duration: 1.1,
-                ease: [0.16, 1, 0.3, 1],
                 scale: { type: 'tween', duration: 0.15, ease: 'easeOut' },
                 y: { type: 'tween', duration: 0.15, ease: 'easeOut' },
               }}
-              whileHover={touch ? {} : { y: -5, scale: 1.022 }}
-              whileTap={{ scale: 0.975 }}
               onClick={() => navigate(a.path)}
               style={{
-                flex: '1 1 200px',
-                maxWidth: '100%', // full width on mobile
-                minHeight: '64px', // touch target
+                flex: '1 1 200px', maxWidth: '100%', minHeight: '64px',
                 background: 'rgba(248,240,225,0.78)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '0.8px solid rgba(140,100,60,0.2)',
-                borderRadius: '4px',
-                padding: 'clamp(1rem, 2.5vw, 1.5rem) clamp(1rem, 2.5vw, 1.5rem) clamp(0.9rem, 2vw, 1.3rem)',
-                cursor: 'pointer',
-                textAlign: 'left',
-                position: 'relative',
-                overflow: 'hidden',
-                willChange: 'transform',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.85rem',
+                backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                border: '0.8px solid rgba(140,100,60,0.2)', borderRadius: '4px',
+                padding: 'clamp(1rem,2.5vw,1.5rem) clamp(1rem,2.5vw,1.5rem) clamp(0.9rem,2vw,1.3rem)',
+                cursor: 'pointer', textAlign: 'left', position: 'relative',
+                overflow: 'hidden', willChange: 'transform',
+                display: 'flex', alignItems: 'flex-start', gap: '0.85rem',
               }}
             >
-              {/* Top hairline */}
               <div style={{
                 position: 'absolute', top: 0, left: '12%', right: '12%', height: '1px',
                 background: 'linear-gradient(90deg, transparent, rgba(140,100,60,0.35), transparent)',
               }}/>
-
-              {/* Corner mark */}
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none"
                 style={{ position: 'absolute', top: 6, right: 6, opacity: 0.12 }}>
                 <path d="M22,0 C18,4 14,10 14,16 C14,18 15,20 16,22"
                   stroke="#3d2510" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
                 <circle cx="16" cy="22" r="1.5" fill="#c97888"/>
               </svg>
-
-              {/* Icon */}
               <div style={{ color: '#5a3018', opacity: 0.75, flexShrink: 0, marginTop: '0.1rem' }}>
                 <CardIcon type={a.type} />
               </div>
-
-              {/* Text */}
               <div style={{ flex: 1 }}>
                 <p style={{
                   fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 'clamp(1rem, 2.5vw, 1.18rem)',
-                  fontWeight: 400, color: '#1e1008',
-                  marginBottom: '0.2rem', letterSpacing: '0.02em',
+                  fontSize: 'clamp(1rem,2.5vw,1.18rem)', fontWeight: 400,
+                  color: '#1e1008', marginBottom: '0.2rem', letterSpacing: '0.02em',
                 }}>
                   {a.label}
                 </p>
                 <p style={{
                   fontFamily: "'Jost', sans-serif",
-                  fontSize: 'clamp(0.68rem, 1.5vw, 0.72rem)',
-                  fontWeight: 300, color: '#5a3018',
-                  letterSpacing: '0.04em', lineHeight: 1.6, opacity: 0.8,
+                  fontSize: 'clamp(0.68rem,1.5vw,0.72rem)', fontWeight: 300,
+                  color: '#5a3018', letterSpacing: '0.04em', lineHeight: 1.6, opacity: 0.8,
                 }}>
                   {a.desc}
                 </p>
@@ -493,20 +550,15 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.6, duration: 1 }}
-          style={{
-            fontFamily: "'Jost', sans-serif",
-            fontSize: 'clamp(0.58rem, 1.2vw, 0.62rem)',
-            letterSpacing: '0.2em', textTransform: 'uppercase',
-            color: '#3d2510', opacity: 0.28,
-            textAlign: 'center',
-          }}
-        >
+        <p style={{
+          fontFamily: "'Jost', sans-serif",
+          fontSize: 'clamp(0.58rem,1.2vw,0.62rem)',
+          letterSpacing: '0.2em', textTransform: 'uppercase',
+          color: '#3d2510', opacity: 0.28 * uiOpacity, textAlign: 'center',
+          pointerEvents: 'none',
+        }}>
           Free forever · No account needed
-        </motion.p>
+        </p>
       </div>
     </div>
   )

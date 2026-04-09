@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ function GrainOverlay() {
     <div
       aria-hidden="true"
       style={{
-        position: 'fixed', inset: 0, zIndex: 2,
+        position: 'fixed', inset: 0, zIndex: 7,
         pointerEvents: 'none',
         backgroundImage: GRAIN_SVG,
         backgroundSize: '200px 200px',
@@ -37,16 +37,106 @@ function GrainOverlay() {
 }
 
 // ---------------------------------------------------------------------------
+// Fullscreen expanded view — shown when a card is selected
+// ---------------------------------------------------------------------------
+function ExpandedView({ card, visible }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 4,
+      opacity: visible ? 1 : 0,
+      pointerEvents: 'none',
+      transition: 'opacity 520ms ease',
+    }}>
+      {card && (
+        <img
+          src={card.src}
+          alt={card.label}
+          draggable="false"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            transform: visible ? 'scale(1)' : 'scale(1.06)',
+            transition: 'transform 900ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          }}
+        />
+      )}
+
+      {/* Bottom gradient for text legibility */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0, right: 0,
+        height: '55%',
+        background: 'linear-gradient(to bottom, transparent, rgba(5,3,1,0.93))',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Card title */}
+      {card && (
+        <div style={{
+          position: 'absolute',
+          bottom: '7.8rem',
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          pointerEvents: 'none',
+        }}>
+          <p style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontStyle: 'italic',
+            fontSize: 'clamp(1.6rem, 4.2vw, 2.8rem)',
+            fontWeight: 300,
+            color: 'rgba(255,255,255,0.88)',
+            letterSpacing: '0.04em',
+            lineHeight: 1.1,
+          }}>
+            {card.label}
+          </p>
+          <p style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: 'clamp(0.52rem, 1.3vmin, 0.65rem)',
+            fontWeight: 300,
+            letterSpacing: '0.28em',
+            textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.32)',
+            marginTop: '0.7rem',
+          }}>
+            for {card.to}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Fine-linework plus icon — custom SVG, no emoji
+function PlusIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="10" y1="1"  x2="10" y2="19" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="1"  y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Individual card — owns its own hover state so the label fade works cleanly
 // ---------------------------------------------------------------------------
-function GalleryCard({ card }) {
+function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
   const [hovered, setHovered] = useState(false)
 
   return (
     <div
-      style={{ position: 'relative', flexShrink: 0 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      data-card="true"
+      style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}
+      onMouseEnter={() => { setHovered(true);  onHoverChange?.(true);  }}
+      onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
+      onClick={onClick}
     >
       <img
         className="gallery-img"
@@ -60,17 +150,19 @@ function GalleryCard({ card }) {
           objectPosition: '100% center',
           display: 'block',
           borderRadius: '2px',
+          outline: isSelected ? '1px solid rgba(255,255,255,0.32)' : '1px solid transparent',
+          transition: 'outline-color 300ms ease',
         }}
       />
 
-      {/* Hover label */}
+      {/* Hover / selected label */}
       <div style={{
         position: 'absolute',
         bottom: 0, left: 0, right: 0,
         padding: '3.5vmin 2.2vmin 2.2vmin',
         background: 'linear-gradient(to bottom, transparent, rgba(5,3,1,0.86))',
         borderRadius: '0 0 2px 2px',
-        opacity: hovered ? 1 : 0,
+        opacity: (hovered || isSelected) ? 1 : 0,
         transition: 'opacity 380ms ease',
         pointerEvents: 'none',
       }}>
@@ -109,19 +201,97 @@ export default function MyCreations() {
 
   // Drag state in refs — never stale in event handlers
   const mouseDownAt  = useRef(0)
+  const dragStartX   = useRef(0)
   const prevPct      = useRef(0)
   const currentPct   = useRef(0)
+  const didDrag      = useRef(false)
 
-  const [dragging,   setDragging]   = useState(false)
-  const [interacted, setInteracted] = useState(false)
+  const [dragging,    setDragging]    = useState(false)
+  const [interacted,  setInteracted]  = useState(false)
   const interactedRef = useRef(false)
+  const [selectedIdx, setSelectedIdx] = useState(null)
 
+  // + button rotation state — each click accumulates 90°
+  const [leftRot,  setLeftRot]  = useState(0)
+  const [rightRot, setRightRot] = useState(0)
+
+  // Refs to avoid stale closures in event handlers
+  const hoveredIdxRef  = useRef(null)
+  const selectedIdxRef = useRef(null)
+  const wheelThrottle  = useRef(false)
+
+  // Keep selectedIdxRef current on every render
+  selectedIdxRef.current = selectedIdx
+
+  // ---------------------------------------------------------------------------
+  // Core animation helpers
+  // ---------------------------------------------------------------------------
+  const applyTrackPosition = useCallback((pct, duration = 1200) => {
+    const track = trackRef.current
+    if (!track) return
+    track.animate(
+      { transform: `translate(${pct}%, -50%)` },
+      { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
+    )
+    for (const img of track.getElementsByClassName('gallery-img')) {
+      img.animate(
+        { objectPosition: `${100 + pct}% center` },
+        { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
+      )
+    }
+  }, [])
+
+  const snapToCard = useCallback((index) => {
+    const track = trackRef.current
+    if (!track) return
+    const cards = track.querySelectorAll('[data-card]')
+    const card  = cards[index]
+    if (!card) return
+
+    const cardCenterPx = card.offsetLeft + card.offsetWidth / 2
+    const pct          = (-cardCenterPx / track.offsetWidth) * 100
+    const clamped      = Math.max(Math.min(pct, 0), -100)
+
+    currentPct.current = clamped
+    prevPct.current    = clamped
+    applyTrackPosition(clamped, 800)
+  }, [applyTrackPosition])
+
+  // ---------------------------------------------------------------------------
+  // Click a card → centre it and reveal nav UI
+  // ---------------------------------------------------------------------------
+  const handleCardClick = useCallback((index) => {
+    if (didDrag.current) return
+    setSelectedIdx(index)
+    snapToCard(index)
+    if (!interactedRef.current) {
+      interactedRef.current = true
+      setInteracted(true)
+    }
+  }, [snapToCard])
+
+  // ---------------------------------------------------------------------------
+  // + button navigation
+  // ---------------------------------------------------------------------------
+  const navigateTo = useCallback((dir) => {
+    setSelectedIdx(prev => {
+      const next = Math.max(0, Math.min(CARDS.length - 1, (prev ?? 0) + dir))
+      snapToCard(next)
+      return next
+    })
+  }, [snapToCard])
+
+  // ---------------------------------------------------------------------------
+  // Drag / touch event wiring
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const track = trackRef.current
     if (!track) return
 
     const handleDown = (x) => {
       mouseDownAt.current = x
+      dragStartX.current  = x
+      didDrag.current     = false
       setDragging(true)
       if (!interactedRef.current) {
         interactedRef.current = true
@@ -131,31 +301,25 @@ export default function MyCreations() {
 
     const handleUp = () => {
       mouseDownAt.current = 0
-      prevPct.current = currentPct.current
+      prevPct.current     = currentPct.current
       setDragging(false)
     }
 
     const handleMove = (x) => {
       if (mouseDownAt.current === 0) return
-
-      const delta       = mouseDownAt.current - x
-      const maxDelta    = window.innerWidth / 2
-      const next        = (delta / maxDelta) * -100
-      const raw         = prevPct.current + next
-      const clamped     = Math.max(Math.min(raw, 0), -100)
-      currentPct.current = clamped
-
-      track.animate(
-        { transform: `translate(${clamped}%, -50%)` },
-        { duration: 1200, fill: 'forwards' }
-      )
-
-      for (const img of track.getElementsByClassName('gallery-img')) {
-        img.animate(
-          { objectPosition: `${100 + clamped}% center` },
-          { duration: 1200, fill: 'forwards' }
-        )
+      if (Math.abs(x - dragStartX.current) > 5) {
+        if (!didDrag.current) {
+          didDrag.current = true
+          setSelectedIdx(null)
+        }
       }
+      const delta    = mouseDownAt.current - x
+      const maxDelta = window.innerWidth / 2
+      const next     = (delta / maxDelta) * -100
+      const raw      = prevPct.current + next
+      const clamped  = Math.max(Math.min(raw, 0), -100)
+      currentPct.current = clamped
+      applyTrackPosition(clamped)
     }
 
     const onMouseDown  = e => handleDown(e.clientX)
@@ -180,7 +344,48 @@ export default function MyCreations() {
       window.removeEventListener('mousemove',  onMouseMove)
       window.removeEventListener('touchmove',  onTouchMove)
     }
-  }, [])
+  }, [applyTrackPosition])
+
+  // ---------------------------------------------------------------------------
+  // Scroll wheel: up over a card → zoom it; down when expanded → close
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (wheelThrottle.current) return
+      const idx = selectedIdxRef.current
+
+      if (idx !== null) {
+        // Expanded — scroll down to return to carousel
+        if (e.deltaY > 30) {
+          wheelThrottle.current = true
+          setTimeout(() => { wheelThrottle.current = false }, 700)
+          setSelectedIdx(null)
+        }
+      } else {
+        // Carousel — scroll up over a card to zoom it
+        if (e.deltaY < -30) {
+          const hi = hoveredIdxRef.current
+          if (hi !== null) {
+            wheelThrottle.current = true
+            setTimeout(() => { wheelThrottle.current = false }, 700)
+            setSelectedIdx(hi)
+            snapToCard(hi)
+            if (!interactedRef.current) {
+              interactedRef.current = true
+              setInteracted(true)
+            }
+          }
+        }
+      }
+    }
+
+    window.addEventListener('wheel', handleWheel, { passive: true })
+    return () => window.removeEventListener('wheel', handleWheel)
+  }, [snapToCard])
+
+  const navVisible = selectedIdx !== null
+  const atStart    = selectedIdx === 0
+  const atEnd      = selectedIdx === CARDS.length - 1
 
   return (
     <div style={{
@@ -197,7 +402,7 @@ export default function MyCreations() {
 
       {/* Radial vignette */}
       <div aria-hidden="true" style={{
-        position: 'fixed', inset: 0, zIndex: 3, pointerEvents: 'none',
+        position: 'fixed', inset: 0, zIndex: 8, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(4,2,1,0.72) 100%)',
       }} />
 
@@ -214,13 +419,13 @@ export default function MyCreations() {
           onClick={() => navigate('/')}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'rgba(255,255,255,0.28)',
+            color: 'rgba(255,255,255,0.35)',
             padding: '0.4rem',
             display: 'flex', alignItems: 'center',
             transition: 'color 280ms ease',
           }}
-          onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.28)'}
+          onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.75)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M10 3 L5 8 L10 13" stroke="currentColor" strokeWidth="1.2"
@@ -234,7 +439,7 @@ export default function MyCreations() {
           fontWeight: 300,
           letterSpacing: '0.3em',
           textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.25)',
+          color: 'rgba(255,255,255,0.45)',
         }}>
           My Creations
         </p>
@@ -252,10 +457,200 @@ export default function MyCreations() {
           transform: 'translate(0%, -50%)',
         }}
       >
-        {CARDS.map(card => <GalleryCard key={card.id} card={card} />)}
+        {CARDS.map((card, i) => (
+          <GalleryCard
+            key={card.id}
+            card={card}
+            isSelected={selectedIdx === i}
+            onClick={() => handleCardClick(i)}
+            onHoverChange={(h) => {
+              if (h) hoveredIdxRef.current = i
+              else if (hoveredIdxRef.current === i) hoveredIdxRef.current = null
+            }}
+          />
+        ))}
       </div>
 
-      {/* Drag hint — fades on first interaction */}
+      {/* ── Fullscreen expanded view (behind grain/vignette, above track) ── */}
+      <ExpandedView
+        card={selectedIdx !== null ? CARDS[selectedIdx] : null}
+        visible={navVisible}
+      />
+
+      {/* ── Close expanded view — top right ───────────────────────────────── */}
+      <button
+        onClick={() => setSelectedIdx(null)}
+        style={{
+          position: 'fixed',
+          top: '1.55rem',
+          right: '2rem',
+          zIndex: 20,
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '0.55rem 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.55rem',
+          fontFamily: "'Jost', sans-serif",
+          fontSize: '0.58rem',
+          fontWeight: 300,
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          color: 'rgba(245,237,224,0.44)',
+          opacity: navVisible ? 1 : 0,
+          transform: navVisible ? 'translateX(0)' : 'translateX(10px)',
+          transition: 'opacity 400ms ease, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1), color 260ms ease',
+          pointerEvents: navVisible ? 'auto' : 'none',
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = 'rgba(245,237,224,0.9)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'rgba(245,237,224,0.44)'}
+      >
+        close
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M2 2L8 8M8 2L2 8" stroke="currentColor" strokeWidth="1"
+            strokeLinecap="round"/>
+        </svg>
+      </button>
+
+      {/* ── Left + navigation ─────────────────────────────────────────────── */}
+      <button
+        onClick={() => { navigateTo(-1); setLeftRot(r => r + 90) }}
+        style={{
+          position: 'fixed',
+          left: '2.6rem',
+          top: '50%',
+          transform: `translateY(-50%) scale(${navVisible ? 1 : 0.5})`,
+          zIndex: 20,
+          background: 'none',
+          border: 'none',
+          cursor: navVisible && !atStart ? 'pointer' : 'default',
+          padding: '1.1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          opacity: navVisible ? (atStart ? 0.14 : 0.65) : 0,
+          transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          pointerEvents: navVisible ? 'auto' : 'none',
+        }}
+        onMouseEnter={e => { if (!atStart) e.currentTarget.style.opacity = '1' }}
+        onMouseLeave={e => { if (!atStart) e.currentTarget.style.opacity = '0.65' }}
+      >
+        <span style={{
+          display: 'inline-flex',
+          transform: `rotate(${leftRot}deg)`,
+          transition: 'transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}>
+          <PlusIcon />
+        </span>
+      </button>
+
+      {/* ── Right + navigation ────────────────────────────────────────────── */}
+      <button
+        onClick={() => { navigateTo(1); setRightRot(r => r + 90) }}
+        style={{
+          position: 'fixed',
+          right: '2.6rem',
+          top: '50%',
+          transform: `translateY(-50%) scale(${navVisible ? 1 : 0.5})`,
+          zIndex: 20,
+          background: 'none',
+          border: 'none',
+          cursor: navVisible && !atEnd ? 'pointer' : 'default',
+          padding: '1.1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          opacity: navVisible ? (atEnd ? 0.14 : 0.65) : 0,
+          transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          pointerEvents: navVisible ? 'auto' : 'none',
+        }}
+        onMouseEnter={e => { if (!atEnd) e.currentTarget.style.opacity = '1' }}
+        onMouseLeave={e => { if (!atEnd) e.currentTarget.style.opacity = '0.65' }}
+      >
+        <span style={{
+          display: 'inline-flex',
+          transform: `rotate(${rightRot}deg)`,
+          transition: 'transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}>
+          <PlusIcon />
+        </span>
+      </button>
+
+      {/* ── Counter — bottom centre ───────────────────────────────────────── */}
+      <div style={{
+        position: 'fixed',
+        bottom: '2.2rem',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        zIndex: 10,
+        opacity: navVisible ? 0.42 : 0,
+        transition: 'opacity 420ms ease',
+        pointerEvents: 'none',
+      }}>
+        <p style={{
+          fontFamily: "'Jost', sans-serif",
+          fontSize: '0.56rem',
+          fontWeight: 300,
+          letterSpacing: '0.24em',
+          color: 'white',
+        }}>
+          {selectedIdx !== null ? `${selectedIdx + 1} — ${CARDS.length}` : ''}
+        </p>
+      </div>
+
+      {/* ── Thumbnail strip — bottom right ────────────────────────────────── */}
+      <div style={{
+        position: 'fixed',
+        bottom: '1.6rem',
+        right: '2rem',
+        zIndex: 20,
+        display: 'flex',
+        gap: '3px',
+        alignItems: 'center',
+        opacity: navVisible ? 1 : 0,
+        transform: navVisible ? 'translateY(0)' : 'translateY(10px)',
+        transition: 'opacity 500ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        pointerEvents: navVisible ? 'auto' : 'none',
+      }}>
+        {CARDS.map((card, i) => (
+          <div
+            key={card.id}
+            onClick={() => { setSelectedIdx(i); snapToCard(i) }}
+            style={{
+              width: '48px',
+              height: '34px',
+              flexShrink: 0,
+              overflow: 'hidden',
+              borderRadius: '1px',
+              cursor: 'pointer',
+              opacity: selectedIdx === i ? 1 : 0.32,
+              outline: selectedIdx === i
+                ? '1px solid rgba(255,255,255,0.5)'
+                : '1px solid transparent',
+              transition: 'opacity 280ms ease, outline-color 280ms ease',
+            }}
+          >
+            <img
+              src={card.src}
+              alt={card.label}
+              draggable="false"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+                pointerEvents: 'none',
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* ── Drag hint — fades on first interaction ────────────────────────── */}
       <div style={{
         position: 'fixed', bottom: '2.2rem', left: 0, right: 0,
         textAlign: 'center', zIndex: 10,
