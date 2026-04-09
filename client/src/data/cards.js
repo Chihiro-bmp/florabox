@@ -8,6 +8,7 @@ export const CARDS = [
     name: 'Marbled Rose',
     occasion: 'Birthday',
     theme: 'botanical',
+    src: '/cards/marbled-rose.jpg',
     Component: MarbledRose,
   },
   {
@@ -15,6 +16,7 @@ export const CARDS = [
     name: 'Golden Hour',
     occasion: 'Birthday',
     theme: 'botanical',
+    src: '/cards/golden-hour.jpg',
     Component: GoldenHour,
   },
   {
@@ -22,6 +24,7 @@ export const CARDS = [
     name: 'Mineral Moon',
     occasion: 'Birthday',
     theme: 'cosmic',
+    src: '/cards/mineral-moon.jpg',
     Component: MineralMoon,
   },
 ];

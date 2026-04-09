@@ -197,7 +197,9 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
 // ---------------------------------------------------------------------------
 export default function MyCreations() {
   const navigate = useNavigate()
-  const trackRef = useRef(null)
+  const trackRef     = useRef(null)
+  const trackAnimRef = useRef(null)
+  const imgAnimsRef  = useRef([])
 
   // Drag state in refs — never stale in event handlers
   const mouseDownAt  = useRef(0)
@@ -226,18 +228,37 @@ export default function MyCreations() {
   // ---------------------------------------------------------------------------
   // Core animation helpers
   // ---------------------------------------------------------------------------
-  const applyTrackPosition = useCallback((pct, duration = 1200) => {
+  const applyTrackPosition = useCallback((pct, duration = 0) => {
     const track = trackRef.current
     if (!track) return
-    track.animate(
-      { transform: `translate(${pct}%, -50%)` },
-      { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
-    )
-    for (const img of track.getElementsByClassName('gallery-img')) {
-      img.animate(
-        { objectPosition: `${100 + pct}% center` },
+    const imgs = Array.from(track.getElementsByClassName('gallery-img'))
+    if (duration > 0) {
+      trackAnimRef.current?.cancel()
+      trackAnimRef.current = track.animate(
+        { transform: `translateX(${pct}%)` },
         { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
       )
+      trackAnimRef.current.onfinish = () => {
+        track.style.transform = `translateX(${pct}%)`
+        trackAnimRef.current?.cancel()
+        trackAnimRef.current = null
+      }
+      imgAnimsRef.current.forEach(a => a?.cancel())
+      imgAnimsRef.current = imgs.map(img => {
+        const anim = img.animate(
+          { objectPosition: `${100 + pct}% center` },
+          { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
+        )
+        anim.onfinish = () => { img.style.objectPosition = `${100 + pct}% center` }
+        return anim
+      })
+    } else {
+      trackAnimRef.current?.cancel()
+      trackAnimRef.current = null
+      track.style.transform = `translateX(${pct}%)`
+      imgAnimsRef.current.forEach(a => a?.cancel())
+      imgAnimsRef.current = []
+      imgs.forEach(img => { img.style.objectPosition = `${100 + pct}% center` })
     }
   }, [])
 
@@ -445,16 +466,14 @@ export default function MyCreations() {
         </p>
       </div>
 
-      {/* Image track */}
+      {/* Image track — outer div handles vertical centering (React), inner div handles horizontal scroll (JS) */}
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translateY(-50%)' }}>
       <div
         ref={trackRef}
         style={{
           display: 'flex',
           gap: '3vmin',
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(0%, -50%)',
+          willChange: 'transform',
         }}
       >
         {CARDS.map((card, i) => (
@@ -469,6 +488,7 @@ export default function MyCreations() {
             }}
           />
         ))}
+      </div>
       </div>
 
       {/* ── Fullscreen expanded view (behind grain/vignette, above track) ── */}

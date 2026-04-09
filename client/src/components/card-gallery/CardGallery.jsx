@@ -2,14 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // ---------------------------------------------------------------------------
-// Card native dimensions (all preset cards render at 300×400)
-// ---------------------------------------------------------------------------
-const NATIVE_W = 300;
-const NATIVE_H = 400;
-const THUMB_H  = 52;
-const THUMB_W  = Math.round(NATIVE_W * (THUMB_H / NATIVE_H)); // ~39px
-
-// ---------------------------------------------------------------------------
 // Film-grain overlay
 // ---------------------------------------------------------------------------
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`;
@@ -41,12 +33,10 @@ function PlusIcon() {
 }
 
 // ---------------------------------------------------------------------------
-// Individual gallery card — renders the card component at track scale
+// Individual gallery card — JPG image in the track
 // ---------------------------------------------------------------------------
-function GalleryCard({ card, cardScale, isSelected, onClick, onHoverChange }) {
+function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
   const [hovered, setHovered] = useState(false);
-  const w = NATIVE_W * cardScale;
-  const h = NATIVE_H * cardScale;
 
   return (
     <div
@@ -54,28 +44,28 @@ function GalleryCard({ card, cardScale, isSelected, onClick, onHoverChange }) {
       style={{
         position: 'relative',
         flexShrink: 0,
-        width:  `${w}px`,
-        height: `${h}px`,
         cursor: 'pointer',
-        overflow: 'hidden',
-        borderRadius: '2px',
-        outline: isSelected ? '1px solid rgba(245,237,224,0.32)' : '1px solid transparent',
-        transition: 'outline-color 300ms ease',
       }}
       onMouseEnter={() => { setHovered(true);  onHoverChange?.(true);  }}
       onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
       onClick={onClick}
     >
-      {/* Scaled card component */}
-      <div style={{
-        width: NATIVE_W,
-        height: NATIVE_H,
-        transformOrigin: 'top left',
-        transform: `scale(${cardScale})`,
-        pointerEvents: 'none',
-      }}>
-        <card.Component />
-      </div>
+      <img
+        className="gallery-img"
+        src={card.src}
+        draggable="false"
+        alt={card.name}
+        style={{
+          width: '40vmin',
+          height: '56vmin',
+          objectFit: 'cover',
+          objectPosition: 'center',
+          display: 'block',
+          borderRadius: '2px',
+          outline: isSelected ? '1px solid rgba(245,237,224,0.32)' : '1px solid transparent',
+          transition: 'outline-color 300ms ease',
+        }}
+      />
 
       {/* Hover / selected label */}
       <div style={{
@@ -115,9 +105,11 @@ function GalleryCard({ card, cardScale, isSelected, onClick, onHoverChange }) {
 }
 
 // ---------------------------------------------------------------------------
-// Expanded card overlay — centred large preview with CTA
+// Expanded card overlay — live React component + CTA
 // ---------------------------------------------------------------------------
 function ExpandedCard({ card, visible, expandedScale }) {
+  const NATIVE_W = 300;
+  const NATIVE_H = 400;
   const w = NATIVE_W * expandedScale;
   const h = NATIVE_H * expandedScale;
 
@@ -152,7 +144,7 @@ function ExpandedCard({ card, visible, expandedScale }) {
           transform: visible ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(12px)',
           transition: 'transform 650ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }}>
-          {/* Card */}
+          {/* Live card component */}
           <div style={{
             width:  `${w}px`,
             height: `${h}px`,
@@ -206,7 +198,8 @@ function ExpandedCard({ card, visible, expandedScale }) {
 // ---------------------------------------------------------------------------
 export default function CardGallery({ cards }) {
   const navigate = useNavigate();
-  const trackRef = useRef(null);
+  const trackRef     = useRef(null);
+  const trackAnimRef = useRef(null);
 
   // Drag state
   const mouseDownAt  = useRef(0);
@@ -220,29 +213,24 @@ export default function CardGallery({ cards }) {
   const interactedRef = useRef(false);
   const [selectedIdx, setSelectedIdx] = useState(null);
 
-  // + button rotation state — each click accumulates 90°
+  // + button rotation state
   const [leftRot,  setLeftRot]  = useState(0);
   const [rightRot, setRightRot] = useState(0);
 
-  // Refs to avoid stale closures in event handlers
   const hoveredIdxRef  = useRef(null);
   const selectedIdxRef = useRef(null);
   const wheelThrottle  = useRef(false);
 
-  // Keep selectedIdxRef current on every render
   selectedIdxRef.current = selectedIdx;
 
-  // Responsive scales
-  const [cardScale,     setCardScale]     = useState(1);
+  // Responsive expanded scale
   const [expandedScale, setExpandedScale] = useState(1.2);
 
   useEffect(() => {
     const update = () => {
-      const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
-      setCardScale((56 * vmin) / NATIVE_H);
       const avH = (window.innerHeight - 190) * 0.92;
       const avW = (window.innerWidth  - 280) * 0.90;
-      setExpandedScale(Math.max(0.5, Math.min(avH / NATIVE_H, avW / NATIVE_W)));
+      setExpandedScale(Math.max(0.5, Math.min(avH / 400, avW / 300)));
     };
     update();
     window.addEventListener('resize', update);
@@ -252,13 +240,25 @@ export default function CardGallery({ cards }) {
   // ---------------------------------------------------------------------------
   // Core animation helpers
   // ---------------------------------------------------------------------------
-  const applyTrackPosition = useCallback((pct, duration = 1200) => {
+  const applyTrackPosition = useCallback((pct, duration = 0) => {
     const track = trackRef.current;
     if (!track) return;
-    track.animate(
-      { transform: `translate(${pct}%, -50%)` },
-      { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
-    );
+    if (duration > 0) {
+      trackAnimRef.current?.cancel();
+      trackAnimRef.current = track.animate(
+        { transform: `translateX(${pct}%)` },
+        { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
+      );
+      trackAnimRef.current.onfinish = () => {
+        track.style.transform = `translateX(${pct}%)`;
+        trackAnimRef.current?.cancel();
+        trackAnimRef.current = null;
+      };
+    } else {
+      trackAnimRef.current?.cancel();
+      trackAnimRef.current = null;
+      track.style.transform = `translateX(${pct}%)`;
+    }
   }, []);
 
   const snapToCard = useCallback((index) => {
@@ -361,7 +361,7 @@ export default function CardGallery({ cards }) {
   }, [applyTrackPosition]);
 
   // ---------------------------------------------------------------------------
-  // Scroll wheel: up over a card → zoom it; down when expanded → close
+  // Scroll wheel: up over a card → expand; down when expanded → close
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const handleWheel = (e) => {
@@ -369,14 +369,12 @@ export default function CardGallery({ cards }) {
       const idx = selectedIdxRef.current;
 
       if (idx !== null) {
-        // Expanded view — scroll down to return to carousel
         if (e.deltaY > 30) {
           wheelThrottle.current = true;
           setTimeout(() => { wheelThrottle.current = false; }, 700);
           setSelectedIdx(null);
         }
       } else {
-        // Carousel — scroll up over a card to zoom it
         if (e.deltaY < -30) {
           const hi = hoveredIdxRef.current;
           if (hi !== null) {
@@ -441,23 +439,20 @@ export default function CardGallery({ cards }) {
         </p>
       </div>
 
-      {/* Image track */}
+      {/* Image track — outer div handles vertical centering (React), inner div handles horizontal scroll (JS) */}
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translateY(-50%)' }}>
       <div
         ref={trackRef}
         style={{
           display: 'flex',
           gap: '3vmin',
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(0%, -50%)',
+          willChange: 'transform',
         }}
       >
         {cards.map((card, i) => (
           <GalleryCard
             key={card.id}
             card={card}
-            cardScale={cardScale}
             isSelected={selectedIdx === i}
             onClick={() => handleCardClick(i)}
             onHoverChange={(h) => {
@@ -467,8 +462,9 @@ export default function CardGallery({ cards }) {
           />
         ))}
       </div>
+      </div>
 
-      {/* ── Expanded card overlay ──────────────────────────────────────────── */}
+      {/* ── Expanded card overlay (live React component) ───────────────────── */}
       <ExpandedCard
         card={selectedIdx !== null ? cards[selectedIdx] : null}
         visible={navVisible}
@@ -658,8 +654,8 @@ export default function CardGallery({ cards }) {
             key={card.id}
             onClick={() => { setSelectedIdx(i); snapToCard(i); }}
             style={{
-              width:    `${THUMB_W}px`,
-              height:   `${THUMB_H}px`,
+              width: '39px',
+              height: '52px',
               flexShrink: 0,
               overflow: 'hidden',
               borderRadius: '1px',
@@ -671,15 +667,18 @@ export default function CardGallery({ cards }) {
               transition: 'opacity 280ms ease, outline-color 280ms ease',
             }}
           >
-            <div style={{
-              width: NATIVE_W,
-              height: NATIVE_H,
-              transformOrigin: 'top left',
-              transform: `scale(${THUMB_H / NATIVE_H})`,
-              pointerEvents: 'none',
-            }}>
-              <card.Component />
-            </div>
+            <img
+              src={card.src}
+              alt={card.name}
+              draggable="false"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+                pointerEvents: 'none',
+              }}
+            />
           </div>
         ))}
       </div>
