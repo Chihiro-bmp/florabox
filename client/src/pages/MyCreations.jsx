@@ -39,7 +39,7 @@ function GrainOverlay() {
 // ---------------------------------------------------------------------------
 // Fullscreen expanded view — shown when a card is selected
 // ---------------------------------------------------------------------------
-function ExpandedView({ card, visible }) {
+function ExpandedView({ card, visible, navDir }) {
   return (
     <div style={{
       position: 'fixed',
@@ -47,10 +47,11 @@ function ExpandedView({ card, visible }) {
       zIndex: 4,
       opacity: visible ? 1 : 0,
       pointerEvents: 'none',
-      transition: 'opacity 520ms ease',
+      transition: 'opacity 320ms ease',
     }}>
       {card && (
         <img
+          key={card.id}
           src={card.src}
           alt={card.label}
           draggable="false"
@@ -61,8 +62,10 @@ function ExpandedView({ card, visible }) {
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'center',
-            transform: visible ? 'scale(1)' : 'scale(1.06)',
-            transition: 'transform 900ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            transform: visible
+              ? 'scale(1) translateX(0)'
+              : `scale(1.03) translateX(${navDir === 1 ? '2%' : navDir === -1 ? '-2%' : '0'})`,
+            transition: 'transform 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           }}
         />
       )}
@@ -85,6 +88,9 @@ function ExpandedView({ card, visible }) {
           right: 0,
           textAlign: 'center',
           pointerEvents: 'none',
+          transform: visible ? 'translateY(0)' : 'translateY(8px)',
+          opacity: visible ? 1 : 0,
+          transition: 'transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 350ms ease',
         }}>
           <p style={{
             fontFamily: "'Cormorant Garamond', serif",
@@ -217,6 +223,11 @@ export default function MyCreations() {
   const [leftRot,  setLeftRot]  = useState(0)
   const [rightRot, setRightRot] = useState(0)
 
+  // Navigation animation direction: -1 = left, 1 = right, null = none
+  const [navDir, setNavDir] = useState(null)
+  const [expandedVisible, setExpandedVisible] = useState(false)
+  const navTimeoutRef = useRef(null)
+
   // Refs to avoid stale closures in event handlers
   const hoveredIdxRef  = useRef(null)
   const selectedIdxRef = useRef(null)
@@ -224,6 +235,44 @@ export default function MyCreations() {
 
   // Keep selectedIdxRef current on every render
   selectedIdxRef.current = selectedIdx
+
+  // Trigger expanded crossfade when selectedIdx changes
+  useEffect(() => {
+    if (selectedIdx !== null) {
+      // Brief fade-out then fade-in for navigation transitions
+      if (navDir !== null) {
+        setExpandedVisible(false)
+        clearTimeout(navTimeoutRef.current)
+        navTimeoutRef.current = setTimeout(() => {
+          setExpandedVisible(true)
+          setNavDir(null)
+        }, 180)
+      } else {
+        setExpandedVisible(true)
+      }
+    } else {
+      setExpandedVisible(false)
+    }
+    return () => clearTimeout(navTimeoutRef.current)
+  }, [selectedIdx])
+
+  // ---------------------------------------------------------------------------
+  // Dynamic clamp bounds — centres first/last card instead of hardcoded [−100, 0]
+  // ---------------------------------------------------------------------------
+  const getClampBounds = useCallback(() => {
+    const track = trackRef.current
+    if (!track) return { min: -100, max: 0 }
+    const cards = track.querySelectorAll('[data-card]')
+    if (cards.length === 0) return { min: -100, max: 0 }
+    const first = cards[0]
+    const last  = cards[cards.length - 1]
+    const firstCenter = first.offsetLeft + first.offsetWidth / 2
+    const lastCenter  = last.offsetLeft  + last.offsetWidth  / 2
+    return {
+      max: (-firstCenter / track.offsetWidth) * 100,
+      min: (-lastCenter  / track.offsetWidth) * 100,
+    }
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Core animation helpers
@@ -271,12 +320,13 @@ export default function MyCreations() {
 
     const cardCenterPx = card.offsetLeft + card.offsetWidth / 2
     const pct          = (-cardCenterPx / track.offsetWidth) * 100
-    const clamped      = Math.max(Math.min(pct, 0), -100)
+    const bounds       = getClampBounds()
+    const clamped      = Math.max(Math.min(pct, bounds.max), bounds.min)
 
     currentPct.current = clamped
     prevPct.current    = clamped
     applyTrackPosition(clamped, 800)
-  }, [applyTrackPosition])
+  }, [applyTrackPosition, getClampBounds])
 
   // ---------------------------------------------------------------------------
   // Click a card → centre it and reveal nav UI
@@ -295,6 +345,7 @@ export default function MyCreations() {
   // + button navigation
   // ---------------------------------------------------------------------------
   const navigateTo = useCallback((dir) => {
+    setNavDir(dir)
     setSelectedIdx(prev => {
       const next = Math.max(0, Math.min(CARDS.length - 1, (prev ?? 0) + dir))
       snapToCard(next)
@@ -338,7 +389,8 @@ export default function MyCreations() {
       const maxDelta = window.innerWidth / 2
       const next     = (delta / maxDelta) * -100
       const raw      = prevPct.current + next
-      const clamped  = Math.max(Math.min(raw, 0), -100)
+      const bounds   = getClampBounds()
+      const clamped  = Math.max(Math.min(raw, bounds.max), bounds.min)
       currentPct.current = clamped
       applyTrackPosition(clamped)
     }
@@ -494,7 +546,8 @@ export default function MyCreations() {
       {/* ── Fullscreen expanded view (behind grain/vignette, above track) ── */}
       <ExpandedView
         card={selectedIdx !== null ? CARDS[selectedIdx] : null}
-        visible={navVisible}
+        visible={expandedVisible}
+        navDir={navDir}
       />
 
       {/* ── Close expanded view — top right ───────────────────────────────── */}
