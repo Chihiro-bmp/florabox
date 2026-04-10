@@ -45,6 +45,10 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
         position: 'relative',
         flexShrink: 0,
         cursor: 'pointer',
+        overflow: 'hidden',
+        borderRadius: '2px',
+        outline: isSelected ? '1px solid rgba(245,237,224,0.32)' : '1px solid transparent',
+        transition: 'outline-color 300ms ease',
       }}
       onMouseEnter={() => { setHovered(true);  onHoverChange?.(true);  }}
       onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
@@ -61,9 +65,6 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
           objectFit: 'cover',
           objectPosition: 'center',
           display: 'block',
-          borderRadius: '2px',
-          outline: isSelected ? '1px solid rgba(245,237,224,0.32)' : '1px solid transparent',
-          transition: 'outline-color 300ms ease',
         }}
       />
 
@@ -107,13 +108,11 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
 // ---------------------------------------------------------------------------
 // Expanded card overlay — live React component + CTA
 // ---------------------------------------------------------------------------
-function ExpandedCard({ card, visible, expandedScale, navDir }) {
+function ExpandedCard({ card, visible, expandedScale }) {
   const NATIVE_W = 300;
   const NATIVE_H = 400;
   const w = NATIVE_W * expandedScale;
   const h = NATIVE_H * expandedScale;
-
-  const slideOffset = navDir === 1 ? '30px' : navDir === -1 ? '-30px' : '0';
 
   return (
     <div style={{
@@ -145,10 +144,6 @@ function ExpandedCard({ card, visible, expandedScale, navDir }) {
             flexDirection: 'column',
             alignItems: 'center',
             gap: '1.4rem',
-            transform: visible
-              ? 'scale(1) translateX(0) translateY(0)'
-              : `scale(0.95) translateX(${slideOffset}) translateY(6px)`,
-            transition: 'transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           }}
         >
           {/* Live card component */}
@@ -173,9 +168,8 @@ function ExpandedCard({ card, visible, expandedScale, navDir }) {
           {/* Card name */}
           <div style={{
             textAlign: 'center',
-            transform: visible ? 'translateY(0)' : 'translateY(8px)',
             opacity: visible ? 1 : 0,
-            transition: 'transform 450ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 300ms ease',
+            transition: 'opacity 300ms ease',
           }}>
             <p style={{
               fontFamily: "'Cormorant Garamond', serif",
@@ -526,7 +520,6 @@ export default function CardGallery({ cards }) {
         card={selectedIdx !== null ? cards[selectedIdx] : null}
         visible={expandedVisible}
         expandedScale={expandedScale}
-        navDir={navDir}
       />
 
       {/* ── Return to carousel — top left ─────────────────────────────────── */}

@@ -39,7 +39,7 @@ function GrainOverlay() {
 // ---------------------------------------------------------------------------
 // Fullscreen expanded view — shown when a card is selected
 // ---------------------------------------------------------------------------
-function ExpandedView({ card, visible, navDir }) {
+function ExpandedView({ card, visible }) {
   return (
     <div style={{
       position: 'fixed',
@@ -62,10 +62,6 @@ function ExpandedView({ card, visible, navDir }) {
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'center',
-            transform: visible
-              ? 'scale(1) translateX(0)'
-              : `scale(1.03) translateX(${navDir === 1 ? '2%' : navDir === -1 ? '-2%' : '0'})`,
-            transition: 'transform 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           }}
         />
       )}
@@ -88,9 +84,8 @@ function ExpandedView({ card, visible, navDir }) {
           right: 0,
           textAlign: 'center',
           pointerEvents: 'none',
-          transform: visible ? 'translateY(0)' : 'translateY(8px)',
           opacity: visible ? 1 : 0,
-          transition: 'transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 350ms ease',
+          transition: 'opacity 350ms ease',
         }}>
           <p style={{
             fontFamily: "'Cormorant Garamond', serif",
@@ -139,7 +134,12 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
   return (
     <div
       data-card="true"
-      style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}
+      style={{
+        position: 'relative', flexShrink: 0, cursor: 'pointer',
+        overflow: 'hidden', borderRadius: '2px',
+        outline: isSelected ? '1px solid rgba(255,255,255,0.32)' : '1px solid transparent',
+        transition: 'outline-color 300ms ease',
+      }}
       onMouseEnter={() => { setHovered(true);  onHoverChange?.(true);  }}
       onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
       onClick={onClick}
@@ -153,11 +153,8 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
           width: '40vmin',
           height: '56vmin',
           objectFit: 'cover',
-          objectPosition: '100% center',
+          objectPosition: 'center',
           display: 'block',
-          borderRadius: '2px',
-          outline: isSelected ? '1px solid rgba(255,255,255,0.32)' : '1px solid transparent',
-          transition: 'outline-color 300ms ease',
         }}
       />
 
@@ -205,7 +202,6 @@ export default function MyCreations() {
   const navigate = useNavigate()
   const trackRef     = useRef(null)
   const trackAnimRef = useRef(null)
-  const imgAnimsRef  = useRef([])
 
   // Drag state in refs — never stale in event handlers
   const mouseDownAt  = useRef(0)
@@ -280,7 +276,6 @@ export default function MyCreations() {
   const applyTrackPosition = useCallback((pct, duration = 0) => {
     const track = trackRef.current
     if (!track) return
-    const imgs = Array.from(track.getElementsByClassName('gallery-img'))
     if (duration > 0) {
       trackAnimRef.current?.cancel()
       trackAnimRef.current = track.animate(
@@ -292,22 +287,10 @@ export default function MyCreations() {
         trackAnimRef.current?.cancel()
         trackAnimRef.current = null
       }
-      imgAnimsRef.current.forEach(a => a?.cancel())
-      imgAnimsRef.current = imgs.map(img => {
-        const anim = img.animate(
-          { objectPosition: `${100 + pct}% center` },
-          { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
-        )
-        anim.onfinish = () => { img.style.objectPosition = `${100 + pct}% center` }
-        return anim
-      })
     } else {
       trackAnimRef.current?.cancel()
       trackAnimRef.current = null
       track.style.transform = `translateX(${pct}%)`
-      imgAnimsRef.current.forEach(a => a?.cancel())
-      imgAnimsRef.current = []
-      imgs.forEach(img => { img.style.objectPosition = `${100 + pct}% center` })
     }
   }, [])
 
@@ -547,7 +530,6 @@ export default function MyCreations() {
       <ExpandedView
         card={selectedIdx !== null ? CARDS[selectedIdx] : null}
         visible={expandedVisible}
-        navDir={navDir}
       />
 
       {/* ── Close expanded view — top right ───────────────────────────────── */}

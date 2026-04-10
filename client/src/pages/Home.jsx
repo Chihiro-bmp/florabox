@@ -692,7 +692,7 @@ function CardIcon({ type }) {
 }
 
 const actions = [
-  { type:'card',    label:'Make a wish card',  desc:'Choose a design, write your message, share the love', path:'/card/new' },
+  { type:'card',    label:'Make a wish card',  desc:'Choose a design, write your message, share the love', path:'/gallery' },
   { type:'bouquet', label:'Build a bouquet',    desc:'Pick flowers from the garden and wrap them up',       path:'/bouquet/new' },
   { type:'archive', label:'My creations',       desc:"Everything you've sent, in one place",               path:'/u/me' },
 ]
