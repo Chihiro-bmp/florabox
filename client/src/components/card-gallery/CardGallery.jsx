@@ -107,11 +107,13 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
 // ---------------------------------------------------------------------------
 // Expanded card overlay — live React component + CTA
 // ---------------------------------------------------------------------------
-function ExpandedCard({ card, visible, expandedScale }) {
+function ExpandedCard({ card, visible, expandedScale, navDir }) {
   const NATIVE_W = 300;
   const NATIVE_H = 400;
   const w = NATIVE_W * expandedScale;
   const h = NATIVE_H * expandedScale;
+
+  const slideOffset = navDir === 1 ? '30px' : navDir === -1 ? '-30px' : '0';
 
   return (
     <div style={{
@@ -124,7 +126,7 @@ function ExpandedCard({ card, visible, expandedScale }) {
       justifyContent: 'center',
       opacity: visible ? 1 : 0,
       pointerEvents: 'none',
-      transition: 'opacity 520ms ease',
+      transition: 'opacity 320ms ease',
     }}>
       {/* Semi-dark background */}
       <div style={{
@@ -135,15 +137,20 @@ function ExpandedCard({ card, visible, expandedScale }) {
       }} />
 
       {card && (
-        <div style={{
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '1.4rem',
-          transform: visible ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(12px)',
-          transition: 'transform 650ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-        }}>
+        <div
+          key={card.id}
+          style={{
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1.4rem',
+            transform: visible
+              ? 'scale(1) translateX(0) translateY(0)'
+              : `scale(0.95) translateX(${slideOffset}) translateY(6px)`,
+            transition: 'transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          }}
+        >
           {/* Live card component */}
           <div style={{
             width:  `${w}px`,
@@ -164,7 +171,12 @@ function ExpandedCard({ card, visible, expandedScale }) {
           </div>
 
           {/* Card name */}
-          <div style={{ textAlign: 'center' }}>
+          <div style={{
+            textAlign: 'center',
+            transform: visible ? 'translateY(0)' : 'translateY(8px)',
+            opacity: visible ? 1 : 0,
+            transition: 'transform 450ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 300ms ease',
+          }}>
             <p style={{
               fontFamily: "'Cormorant Garamond', serif",
               fontStyle: 'italic',
@@ -217,11 +229,35 @@ export default function CardGallery({ cards }) {
   const [leftRot,  setLeftRot]  = useState(0);
   const [rightRot, setRightRot] = useState(0);
 
+  // Navigation animation direction: -1 = left, 1 = right, null = none
+  const [navDir, setNavDir] = useState(null);
+  const [expandedVisible, setExpandedVisible] = useState(false);
+  const navTimeoutRef = useRef(null);
+
   const hoveredIdxRef  = useRef(null);
   const selectedIdxRef = useRef(null);
   const wheelThrottle  = useRef(false);
 
   selectedIdxRef.current = selectedIdx;
+
+  // Trigger expanded crossfade when selectedIdx changes
+  useEffect(() => {
+    if (selectedIdx !== null) {
+      if (navDir !== null) {
+        setExpandedVisible(false);
+        clearTimeout(navTimeoutRef.current);
+        navTimeoutRef.current = setTimeout(() => {
+          setExpandedVisible(true);
+          setNavDir(null);
+        }, 180);
+      } else {
+        setExpandedVisible(true);
+      }
+    } else {
+      setExpandedVisible(false);
+    }
+    return () => clearTimeout(navTimeoutRef.current);
+  }, [selectedIdx]);
 
   // Responsive expanded scale
   const [expandedScale, setExpandedScale] = useState(1.2);
@@ -235,6 +271,24 @@ export default function CardGallery({ cards }) {
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Dynamic clamp bounds — centres first/last card instead of hardcoded [−100, 0]
+  // ---------------------------------------------------------------------------
+  const getClampBounds = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return { min: -100, max: 0 };
+    const cardEls = track.querySelectorAll('[data-card]');
+    if (cardEls.length === 0) return { min: -100, max: 0 };
+    const first = cardEls[0];
+    const last  = cardEls[cardEls.length - 1];
+    const firstCenter = first.offsetLeft + first.offsetWidth / 2;
+    const lastCenter  = last.offsetLeft  + last.offsetWidth  / 2;
+    return {
+      max: (-firstCenter / track.offsetWidth) * 100,
+      min: (-lastCenter  / track.offsetWidth) * 100,
+    };
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -270,12 +324,13 @@ export default function CardGallery({ cards }) {
 
     const cardCenterPx = cardEl.offsetLeft + cardEl.offsetWidth / 2;
     const pct          = (-cardCenterPx / track.offsetWidth) * 100;
-    const clamped      = Math.max(Math.min(pct, 0), -100);
+    const bounds       = getClampBounds();
+    const clamped      = Math.max(Math.min(pct, bounds.max), bounds.min);
 
     currentPct.current = clamped;
     prevPct.current    = clamped;
     applyTrackPosition(clamped, 800);
-  }, [applyTrackPosition]);
+  }, [applyTrackPosition, getClampBounds]);
 
   const handleCardClick = useCallback((index) => {
     if (didDrag.current) return;
@@ -288,6 +343,7 @@ export default function CardGallery({ cards }) {
   }, [snapToCard]);
 
   const navigateTo = useCallback((dir) => {
+    setNavDir(dir);
     setSelectedIdx(prev => {
       const next = Math.max(0, Math.min(cards.length - 1, (prev ?? 0) + dir));
       snapToCard(next);
@@ -331,7 +387,8 @@ export default function CardGallery({ cards }) {
       const maxDelta = window.innerWidth / 2;
       const next     = (delta / maxDelta) * -100;
       const raw      = prevPct.current + next;
-      const clamped  = Math.max(Math.min(raw, 0), -100);
+      const bounds   = getClampBounds();
+      const clamped  = Math.max(Math.min(raw, bounds.max), bounds.min);
       currentPct.current = clamped;
       applyTrackPosition(clamped);
     };
@@ -467,8 +524,9 @@ export default function CardGallery({ cards }) {
       {/* ── Expanded card overlay (live React component) ───────────────────── */}
       <ExpandedCard
         card={selectedIdx !== null ? cards[selectedIdx] : null}
-        visible={navVisible}
+        visible={expandedVisible}
         expandedScale={expandedScale}
+        navDir={navDir}
       />
 
       {/* ── Return to carousel — top left ─────────────────────────────────── */}
