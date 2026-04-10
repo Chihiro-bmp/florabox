@@ -4,15 +4,18 @@ import { motion, useMotionValue, useSpring } from 'framer-motion'
 
 const isTouch = () => window.matchMedia('(hover: none)').matches
 
-// ─── Petal / grass canvas ─────────────────────────────────────────────────────
+// ─── Particle helpers ─────────────────────────────────────────────────────────
 const PETAL_COLORS = ['#c9788a','#d4909e','#e8b4bc','#c47a6e','#d4a090','#b8848c']
+const GRASS_DARK = ['#3a5020','#2e4018','#4a6028']
+const GRASS_LIGHT = ['#8aaa70','#9aba80','#7a9a60']
 
 function makePetal(w, h, fromX, fromY, burst = false) {
   const angle = Math.random() * Math.PI * 2
   const speed = burst ? 2.5 + Math.random() * 3.5 : 0.4 + Math.random() * 0.7
   return {
+    kind: 'petal',
     x: fromX ?? (Math.random() * w * 1.2 - w * 0.1),
-    y: fromY ?? (Math.random() * h),
+    y: fromY ?? (Math.random() * h * 0.85),
     vx: burst ? Math.cos(angle) * speed : speed,
     vy: burst ? Math.sin(angle) * speed : -0.05 + Math.random() * 0.18,
     burstDecay: burst ? 0.92 : 1,
@@ -23,31 +26,57 @@ function makePetal(w, h, fromX, fromY, burst = false) {
     swaySpeed: 0.005 + Math.random() * 0.008,
     swayAmp: 0.25 + Math.random() * 0.45,
     size: burst ? 4 + Math.random() * 7 : 5 + Math.random() * 9,
-    opacity: burst ? 0.55 + Math.random() * 0.35 : 0.25 + Math.random() * 0.45,
+    opacity: burst ? 0.6 + Math.random() * 0.3 : 0.3 + Math.random() * 0.4,
     color: PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)],
     type: Math.floor(Math.random() * 3),
-    isGrass: false,
   }
 }
 
-// Grass shards — thin lines drifting horizontally
 function makeGrassShard(w, h) {
-  const dark = Math.random() > 0.5
+  const dark = Math.random() > 0.4
   return {
+    kind: 'grass',
     x: Math.random() * w * 1.2 - w * 0.1,
-    y: Math.random() * h,
-    vx: 0.3 + Math.random() * 0.5,
-    vy: -0.02 + Math.random() * 0.08,
-    angle: -0.3 + Math.random() * 0.6, // mostly upright
-    angleV: (Math.random() - 0.5) * 0.006,
+    y: Math.random() * h * 0.88,
+    vx: 0.2 + Math.random() * 0.4,
+    vy: -0.01 + Math.random() * 0.05,
+    burstDone: true,
+    angle: -0.35 + Math.random() * 0.7,
+    angleV: (Math.random() - 0.5) * 0.004,
     sway: Math.random() * Math.PI * 2,
-    swaySpeed: 0.004 + Math.random() * 0.006,
-    swayAmp: 0.15 + Math.random() * 0.25,
-    length: 18 + Math.random() * 28,
-    opacity: dark ? 0.35 + Math.random() * 0.3 : 0.2 + Math.random() * 0.25,
-    color: dark ? '#3a5020' : '#8aaa70',
-    width: dark ? 1.2 : 0.8,
-    isGrass: true,
+    swaySpeed: 0.003 + Math.random() * 0.004,
+    swayAmp: 0.08 + Math.random() * 0.16,
+    length: 18 + Math.random() * 26,
+    opacity: dark ? 0.5 + Math.random() * 0.3 : 0.32 + Math.random() * 0.22,
+    color: dark
+      ? GRASS_DARK[Math.floor(Math.random() * GRASS_DARK.length)]
+      : GRASS_LIGHT[Math.floor(Math.random() * GRASS_LIGHT.length)],
+    width: dark ? 1.4 : 0.9,
+  }
+}
+
+
+// Grass burst — sideways scatter like wind catching loose blades
+function makeGrassBurst(w, h, fromX, fromY) {
+  const dark = Math.random() > 0.4
+  const leftBias = fromX > w / 2 ? -1 : 1
+  const spreadAngle = (Math.random() - 0.3) * Math.PI * 0.7
+  const speed = 1.8 + Math.random() * 2.8
+  return {
+    kind: 'grass',
+    x: fromX, y: fromY,
+    vx: Math.cos(spreadAngle) * speed * leftBias,
+    vy: Math.sin(spreadAngle) * speed - 0.8 - Math.random() * 1.2,
+    burstDecay: 0.94, burstDone: false,
+    angle: Math.random() * Math.PI * 2,
+    angleV: (Math.random() - 0.5) * 0.04,
+    sway: Math.random() * Math.PI * 2,
+    swaySpeed: 0.003 + Math.random() * 0.004,
+    swayAmp: 0.08 + Math.random() * 0.14,
+    length: 14 + Math.random() * 20,
+    opacity: dark ? 0.55 + Math.random() * 0.3 : 0.35 + Math.random() * 0.2,
+    color: dark ? GRASS_DARK[Math.floor(Math.random() * GRASS_DARK.length)] : GRASS_LIGHT[Math.floor(Math.random() * GRASS_LIGHT.length)],
+    width: dark ? 1.4 : 0.85,
   }
 }
 
@@ -56,15 +85,13 @@ function drawParticle(ctx, p) {
   ctx.translate(p.x, p.y)
   ctx.rotate(p.angle)
   ctx.globalAlpha = p.opacity
-
-  if (p.isGrass) {
+  if (p.kind === 'grass') {
     ctx.strokeStyle = p.color
     ctx.lineWidth = p.width
     ctx.lineCap = 'round'
     ctx.beginPath()
     ctx.moveTo(0, p.length / 2)
-    // Slight curve to the grass shard
-    ctx.quadraticCurveTo(p.width * 2, 0, 0, -p.length / 2)
+    ctx.quadraticCurveTo(p.width * 4, 0, 0, -p.length / 2)
     ctx.stroke()
   } else {
     ctx.fillStyle = p.color
@@ -83,26 +110,37 @@ function drawParticle(ctx, p) {
   ctx.restore()
 }
 
-function PetalCanvas({ onCanvasRef }) {
+// ─── Combined canvas — petals + grass shards ──────────────────────────────────
+function ParticleCanvas({ burstRef }) {
   const canvasRef = useRef(null)
   const particlesRef = useRef([])
-  const rafRef = useRef(null)
   const dimsRef = useRef({ w: 0, h: 0 })
+  const rafRef = useRef(null)
+
+  // Expose burst function via ref
+  burstRef.current = (x, y, grassBurst = false) => {
+    const { w, h } = dimsRef.current
+    const burst = grassBurst
+      ? Array.from({ length: 8 }, () => makeGrassBurst(w, h, x, y))
+      : Array.from({ length: 9 }, () => makePetal(w, h, x, y, true))
+    particlesRef.current.push(...burst)
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current
-    onCanvasRef(canvas, particlesRef, dimsRef)
     const ctx = canvas.getContext('2d')
 
-    const setSize = () => {
-      const w = window.innerWidth, h = window.innerHeight
-      canvas.width = w; canvas.height = h
+    const init = () => {
+      const w = window.innerWidth
+      const h = window.innerHeight
+      canvas.width = w
+      canvas.height = h
       dimsRef.current = { w, h }
-      const petals = Array.from({ length: 18 }, () => makePetal(w, h))
-      const grass = Array.from({ length: 14 }, () => makeGrassShard(w, h))
+      const petals = Array.from({ length: 20 }, () => makePetal(w, h))
+      const grass = Array.from({ length: 18 }, () => makeGrassShard(w, h))
       particlesRef.current = [...petals, ...grass]
     }
-    setSize()
+    init()
 
     const tick = () => {
       const { w, h } = dimsRef.current
@@ -119,9 +157,9 @@ function PetalCanvas({ onCanvasRef }) {
         }
         p.sway += p.swaySpeed
         p.x += p.vx + (p.burstDone ? Math.sin(p.sway) * p.swayAmp : 0)
-        p.y += p.vy + (p.burstDone ? Math.cos(p.sway * 0.7) * 0.12 : 0)
+        p.y += p.vy + (p.burstDone ? Math.cos(p.sway * 0.7) * 0.1 : 0)
         p.angle += p.angleV
-        if (p.x > w + 30) { p.x = -30; p.y = Math.random() * h }
+        if (p.x > w + 30) { p.x = -30; p.y = Math.random() * h * 0.88 }
         if (p.y < -30) p.y = h + 30
         if (p.y > h + 30) p.y = -30
         drawParticle(ctx, p)
@@ -130,17 +168,17 @@ function PetalCanvas({ onCanvasRef }) {
     }
     tick()
 
-    window.addEventListener('resize', setSize)
-    window.addEventListener('orientationchange', () => setTimeout(setSize, 120))
+    const onResize = () => { init() }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', () => setTimeout(onResize, 150))
     return () => {
       cancelAnimationFrame(rafRef.current)
-      window.removeEventListener('resize', setSize)
-      window.removeEventListener('orientationchange', setSize)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
     }
   }, [])
 
-  return <canvas ref={canvasRef}
-    style={{ position:'absolute', inset:0, zIndex:3, pointerEvents:'none' }}/>
+  return <canvas ref={canvasRef} style={{ position:'absolute', inset:0, zIndex:3, pointerEvents:'none' }}/>
 }
 
 // ─── Branch paths ─────────────────────────────────────────────────────────────
@@ -165,31 +203,322 @@ const BRANCH_PATHS = [
 ]
 const BRANCH_WIDTHS = [8,5.5,3.5,3,2.5,2,1.8,2.2,1.4,1.4,1.2,1.2,5,3.2,2,1.5,1.8]
 
-// Ground meadow data — full width sweep
-const GRASS_BLADES = [
-  // [x, baseY, height, color, width, type] type: 0=grass, 1=reed, 2=wildflower stem
-  ...[...Array(38)].map((_, i) => {
-    const x = 20 + i * 38 + (Math.random() * 18 - 9)
-    const dark = i % 3 !== 0
-    return [x, 900, 55 + Math.random() * 55, dark ? '#3d5828' : '#8aaa70', dark ? 1.6 : 1.0, 0]
-  }),
-  // Reed grass — taller, sparser
-  ...[...Array(14)].map((_, i) => [80 + i * 100 + Math.random()*30, 900, 90 + Math.random()*50, '#5a7840', 1.8, 1]),
-  // Wildflower stems
-  ...[...Array(16)].map((_, i) => [50 + i * 88 + Math.random()*20, 900, 70 + Math.random()*40, '#4a6830', 1.2, 2]),
-]
+// ─── Ground meadow data — 3 depth layers ─────────────────────────────────────
+// Layer 1: Far background — short, pale, low opacity (baseY 870)
+// Layer 2: Mid ground — medium height, medium opacity (baseY 880)
+// Layer 3: Foreground — tall, dense, full opacity (baseY 895)
 
-const FLOWER_HEADS = [
-  // [x, y, type, color] type: 0=daisy, 1=round, 2=seed
-  ...[...Array(12)].map((_, i) => [60 + i * 115 + Math.random()*30, 820 + Math.random()*30,
-    i%3, i%4===0?'#c97888':i%4===1?'#d4909e':i%4===2?'#e8c840':'#d4a070']),
-]
+const GROUND_LAYERS = (() => {
+  const layers = []
+
+  // LAYER 1 — background, short pale wisps, baseY 865
+  for (let i = 0; i < 40; i++) {
+    layers.push({
+      x: (i / 39) * 1440 + (Math.random() * 30 - 15),
+      h: 35 + Math.random() * 45,
+      baseY: 865,
+      color: GRASS_LIGHT[i % 3],
+      w: 0.7, op: 0.28, type: 0, layer: 1,
+      phase: Math.random() * Math.PI * 2,       // random start offset
+      freq: 0.3 + Math.random() * 0.25,         // individual sway speed
+      amp: 0.015 + Math.random() * 0.012,       // individual sway amount
+    })
+  }
+
+  // LAYER 2 — mid ground, medium blades, baseY 878
+  for (let i = 0; i < 55; i++) {
+    const dark = i % 3 !== 0
+    layers.push({
+      x: (i / 54) * 1440 + (Math.random() * 22 - 11),
+      h: 70 + Math.random() * 80,
+      baseY: 878,
+      color: dark ? GRASS_DARK[i % 3] : GRASS_LIGHT[i % 3],
+      w: dark ? 1.6 : 1.0, op: dark ? 0.55 : 0.38, type: 0, layer: 2,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.4 + Math.random() * 0.3,
+      amp: 0.02 + Math.random() * 0.015,
+    })
+  }
+  // Mid reeds
+  for (let i = 0; i < 16; i++) {
+    layers.push({
+      x: 45 + i * 88 + Math.random() * 35,
+      h: 130 + Math.random() * 80,
+      baseY: 878,
+      color: '#4a7030', w: 1.8, op: 0.5, type: 1, layer: 2,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.25 + Math.random() * 0.2,
+      amp: 0.025 + Math.random() * 0.015,
+    })
+  }
+
+  // LAYER 3 — foreground, tall dense, baseY 900 (bottom edge)
+  for (let i = 0; i < 70; i++) {
+    const dark = i % 2 === 0
+    layers.push({
+      x: (i / 69) * 1440 + (Math.random() * 18 - 9),
+      h: 100 + Math.random() * 130,
+      baseY: 900,
+      color: dark ? GRASS_DARK[i % 3] : GRASS_LIGHT[i % 3],
+      w: dark ? 2.2 : 1.3, op: dark ? 0.80 : 0.58, type: 0, layer: 3,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.35 + Math.random() * 0.3,
+      amp: 0.025 + Math.random() * 0.02,
+    })
+  }
+  // Tall foreground reeds
+  for (let i = 0; i < 22; i++) {
+    layers.push({
+      x: 30 + i * 66 + Math.random() * 28,
+      h: 180 + Math.random() * 90,
+      baseY: 900,
+      color: '#3a6020', w: 2.5, op: 0.72, type: 1, layer: 3,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.22 + Math.random() * 0.18,
+      amp: 0.03 + Math.random() * 0.018,
+    })
+  }
+  // Extra fine wisps foreground
+  for (let i = 0; i < 35; i++) {
+    layers.push({
+      x: 10 + i * 41 + Math.random() * 18,
+      h: 80 + Math.random() * 80,
+      baseY: 900,
+      color: GRASS_LIGHT[i % 3], w: 0.9, op: 0.45, type: 0, layer: 3,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.4 + Math.random() * 0.35,
+      amp: 0.018 + Math.random() * 0.014,
+    })
+  }
+
+  return layers
+})()
+
+// Flowers — layered across depths
+const FLOWER_HEADS = (() => {
+  const flowers = []
+
+  // Background small daisies — layer 1
+  for (let i = 0; i < 10; i++) {
+    flowers.push({
+      x: 60 + i * 140 + Math.random() * 40,
+      stemH: 40 + Math.random() * 30,
+      baseY: 865, layer: 1,
+      type: 'daisy',
+      color: '#f5edc8', scale: 0.6,
+    })
+  }
+
+  // Mid ground — clover clusters + small wildflowers — layer 2
+  for (let i = 0; i < 14; i++) {
+    flowers.push({
+      x: 40 + i * 100 + Math.random() * 35,
+      stemH: 60 + Math.random() * 50,
+      baseY: 878, layer: 2,
+      type: i % 3 === 0 ? 'clover' : i % 3 === 1 ? 'daisy' : 'wildflower',
+      color: i%4===0?'#c97888':i%4===1?'#b8d070':i%4===2?'#e8c840':'#d4a070',
+      scale: 0.75,
+    })
+  }
+
+  // Foreground — tall dandelions + big clover + poppies — layer 3
+  for (let i = 0; i < 20; i++) {
+    flowers.push({
+      x: 30 + i * 72 + Math.random() * 28,
+      stemH: 100 + Math.random() * 100,
+      baseY: 900, layer: 3,
+      type: i % 4 === 0 ? 'dandelion' : i % 4 === 1 ? 'clover' : i % 4 === 2 ? 'poppy' : 'daisy',
+      color: i%5===0?'#c97888':i%5===1?'#d4909e':i%5===2?'#e8c840':i%5===3?'#b8d890':'#f0a870',
+      scale: 1.0,
+      // Pre-computed dandelion ray lengths — fixed so they never re-randomise on render
+      rays: Array.from({length: 18}, () => 11 + Math.random() * 6),
+    })
+  }
+
+  return flowers
+})()
+
+
+// ─── Ground grass canvas — runs its own RAF, zero React re-renders ────────────
+function GrassCanvas({ drawProgressRef, swayTRef }) {
+  const canvasRef = useRef(null)
+  const rafRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+
+    const setSize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    setSize()
+    window.addEventListener('resize', setSize)
+    window.addEventListener('orientationchange', () => setTimeout(setSize, 150))
+
+    // Pre-parse colors once
+    const parsedLayers = GROUND_LAYERS.map(b => ({ ...b }))
+    const parsedFlowers = FLOWER_HEADS.map(f => ({ ...f }))
+
+    const scaleX = window.innerWidth / 1440
+    const scaleY = window.innerHeight / 900
+
+    const tick = () => {
+      const dp = drawProgressRef.current
+      const t = swayTRef.current
+      const w = canvas.width
+      const h = canvas.height
+      const sx = w / 1440
+      const sy = h / 900
+
+      ctx.clearRect(0, 0, w, h)
+      ctx.globalAlpha = dp
+
+      // Draw grass blades
+      parsedLayers.forEach(b => {
+        const bladeSway = Math.sin(t * b.freq + b.phase) * b.amp * b.h
+        const baseX = b.x * sx
+        const baseY = b.baseY * sy
+        const tipX = baseX + bladeSway * sx
+        const tipY = baseY - b.h * sy
+        const ctrlX = baseX + bladeSway * 0.55 * sx
+        const ctrlY = baseY - b.h * 0.56 * sy
+
+        ctx.beginPath()
+        ctx.moveTo(baseX, baseY)
+        ctx.quadraticCurveTo(ctrlX, ctrlY, tipX, tipY)
+        ctx.strokeStyle = b.color
+        ctx.lineWidth = b.w
+        ctx.globalAlpha = dp * b.op
+        ctx.lineCap = 'round'
+        ctx.stroke()
+      })
+
+      // Draw flower heads
+      parsedFlowers.forEach(f => {
+        const swayScale = f.layer === 1 ? 0.5 : f.layer === 2 ? 0.8 : 1.0
+        // Find matching blade for phase — use index-based fallback
+        const fs = Math.sin(t * 0.4 * swayScale + (f.x % (Math.PI * 2))) * f.stemH * 0.035
+        const baseY = f.baseY * sy
+        const fx = (f.x + fs) * sx
+        const fy = baseY - f.stemH * sy
+        const sc = f.scale * Math.min(sx, sy)
+
+        ctx.globalAlpha = dp * (f.layer === 1 ? 0.6 : f.layer === 2 ? 0.78 : 0.92)
+
+        if (f.type === 'daisy') {
+          for (let j = 0; j < 8; j++) {
+            const a = (j / 8) * Math.PI * 2
+            const pr = 6 * sc
+            ctx.beginPath()
+            ctx.ellipse(fx + Math.cos(a)*pr, fy + Math.sin(a)*pr, 3.2*sc, 1.5*sc, a, 0, Math.PI*2)
+            ctx.fillStyle = f.color
+            ctx.fill()
+          }
+          ctx.beginPath()
+          ctx.arc(fx, fy, 3.2*sc, 0, Math.PI*2)
+          ctx.fillStyle = '#e8c030'
+          ctx.fill()
+        }
+
+        else if (f.type === 'clover') {
+          for (let j = 0; j < 4; j++) {
+            const a = (j / 4) * Math.PI * 2
+            ctx.beginPath()
+            ctx.arc(fx + Math.cos(a)*4*sc, fy + Math.sin(a)*4*sc, 4.5*sc, 0, Math.PI*2)
+            ctx.fillStyle = f.color
+            ctx.fill()
+          }
+          ctx.beginPath()
+          ctx.arc(fx, fy, 3.5*sc, 0, Math.PI*2)
+          ctx.fillStyle = f.color
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(fx, fy, 1.5*sc, 0, Math.PI*2)
+          ctx.fillStyle = '#fff8e0'
+          ctx.globalAlpha = dp * 0.55
+          ctx.fill()
+        }
+
+        else if (f.type === 'dandelion') {
+          const rays = f.rays ?? Array.from({length:18}, () => 13)
+          rays.forEach((r2, j) => {
+            const a = (j / rays.length) * Math.PI * 2
+            const r1 = 4.5 * sc
+            const r2s = r2 * sc
+            ctx.beginPath()
+            ctx.moveTo(fx + Math.cos(a)*r1, fy + Math.sin(a)*r1)
+            ctx.lineTo(fx + Math.cos(a)*r2s, fy + Math.sin(a)*r2s)
+            ctx.strokeStyle = '#8aaa50'
+            ctx.lineWidth = 1.1 * sc
+            ctx.globalAlpha = dp * 0.9
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.arc(fx + Math.cos(a)*r2s, fy + Math.sin(a)*r2s, 2*sc, 0, Math.PI*2)
+            ctx.fillStyle = '#c8d870'
+            ctx.globalAlpha = dp * 0.95
+            ctx.fill()
+          })
+          ctx.beginPath()
+          ctx.arc(fx, fy, 4.5*sc, 0, Math.PI*2)
+          ctx.fillStyle = '#b8c850'
+          ctx.globalAlpha = dp * 0.92
+          ctx.fill()
+        }
+
+        else if (f.type === 'poppy') {
+          for (let j = 0; j < 4; j++) {
+            const a = (j / 4) * Math.PI * 2
+            ctx.beginPath()
+            ctx.ellipse(fx + Math.cos(a)*6*sc, fy + Math.sin(a)*6*sc, 7*sc, 5*sc, a, 0, Math.PI*2)
+            ctx.fillStyle = f.color
+            ctx.globalAlpha = dp * 0.72
+            ctx.fill()
+          }
+          ctx.beginPath()
+          ctx.arc(fx, fy, 4.5*sc, 0, Math.PI*2)
+          ctx.fillStyle = '#2a1a0e'
+          ctx.globalAlpha = dp * 0.55
+          ctx.fill()
+        }
+
+        else {
+          // wildflower
+          for (let j = 0; j < 5; j++) {
+            const a = (j / 5) * Math.PI * 2
+            ctx.beginPath()
+            ctx.ellipse(fx + Math.cos(a)*5.5*sc, fy + Math.sin(a)*5.5*sc, 3.2*sc, 2*sc, a + Math.PI/2, 0, Math.PI*2)
+            ctx.fillStyle = f.color
+            ctx.globalAlpha = dp * 0.74
+            ctx.fill()
+          }
+          ctx.beginPath()
+          ctx.arc(fx, fy, 2.8*sc, 0, Math.PI*2)
+          ctx.fillStyle = '#f0d080'
+          ctx.globalAlpha = dp * 0.85
+          ctx.fill()
+        }
+      })
+
+      ctx.globalAlpha = 1
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    tick()
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', setSize)
+      window.removeEventListener('orientationchange', setSize)
+    }
+  }, [])
+
+  return <canvas ref={canvasRef}
+    style={{ position:'absolute', inset:0, zIndex:2, pointerEvents:'none' }}/>
+}
 
 // ─── SVG background ───────────────────────────────────────────────────────────
-function BlossomBackground({ drawProgress, swayT }) {
-  // Shared breeze — one sinusoidal sway for all ground elements
-  const sway = Math.sin(swayT * 0.8) * 5 // degrees
-  const swayRad = sway * Math.PI / 180
+function BlossomBackground({ drawProgress }) {
+  // Branch sway uses CSS animations — no JS needed, smooth 60fps with no re-renders
 
   return (
     <svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg"
@@ -197,13 +526,13 @@ function BlossomBackground({ drawProgress, swayT }) {
       style={{ position:'absolute', inset:0, width:'100%', height:'100%', zIndex:1 }}>
       <defs>
         <filter id="paper" x="0%" y="0%" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
-          <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
-          <feBlend in="SourceGraphic" in2="grayNoise" mode="multiply" result="blend"/>
-          <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="n"/>
+          <feColorMatrix type="saturate" values="0" in="n" result="g"/>
+          <feBlend in="SourceGraphic" in2="g" mode="multiply" result="b"/>
+          <feComposite in="b" in2="SourceGraphic" operator="in"/>
         </filter>
         <filter id="inkblur"><feGaussianBlur stdDeviation="0.6"/></filter>
-        <filter id="softglow"><feGaussianBlur stdDeviation="6"/></filter>
+        <filter id="glow"><feGaussianBlur stdDeviation="8"/></filter>
         <linearGradient id="parchment" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#f5ede0"/>
           <stop offset="40%" stopColor="#ede0cc"/>
@@ -213,85 +542,107 @@ function BlossomBackground({ drawProgress, swayT }) {
           <stop offset="0%" stopColor="#fffdf5" stopOpacity="0.7"/>
           <stop offset="100%" stopColor="#e8d8bf" stopOpacity="0"/>
         </radialGradient>
-        {/* Sage ink wash gradient for ground */}
-        <linearGradient id="groundwash" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#7a9e60" stopOpacity="0"/>
-          <stop offset="100%" stopColor="#5a7840" stopOpacity="0.12"/>
+        {/* Sage green ground fade — from bottom, covering bottom ~25% */}
+        <linearGradient id="groundfade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#6a8850" stopOpacity="0"/>
+          <stop offset="100%" stopColor="#4a6830" stopOpacity="0.18"/>
         </linearGradient>
       </defs>
+      <style>{`
+        @keyframes branchSwayLeft {
+          0%, 100% { transform: rotate(0deg); }
+          30% { transform: rotate(2.5deg); }
+          60% { transform: rotate(-1.5deg); }
+          80% { transform: rotate(1deg); }
+        }
+        @keyframes branchSwayRight {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-2deg); }
+          55% { transform: rotate(1.5deg); }
+          75% { transform: rotate(-0.8deg); }
+        }
+      `}</style>
 
-      {/* Parchment base */}
+      {/* Parchment */}
       <rect width="1440" height="900" fill="url(#parchment)"/>
       <rect width="1440" height="900" fill="url(#lightpool)"/>
       <rect width="1440" height="900" fill="url(#parchment)" filter="url(#paper)" opacity="0.08"/>
 
-      {/* Soft sage ground wash — full width */}
-      <rect x="0" y="820" width="1440" height="80" fill="url(#groundwash)" opacity={drawProgress}/>
-      <ellipse cx="720" cy="910" rx="820" ry="60" fill="#6a8850" opacity={0.06 * drawProgress} filter="url(#softglow)"/>
+      {/* Sage ground wash — bottom 30% of screen */}
+      <rect x="0" y="630" width="1440" height="270" fill="url(#groundfade)" opacity={drawProgress}/>
+      <ellipse cx="720" cy="900" rx="900" ry="80" fill="#5a7840" opacity={0.1 * drawProgress} filter="url(#glow)"/>
 
-      {/* Ghost branches */}
-      {BRANCH_PATHS.map((d, i) => (
-        <path key={`ghost_${i}`} d={d} stroke="#2a1a0e"
-          strokeWidth={BRANCH_WIDTHS[i]||2} fill="none" strokeLinecap="round" opacity="0.06"/>
-      ))}
+      {/* Left branch group — sways gently, pivoting from root at bottom-left */}
+      <g style={{ transformOrigin:'-10px 820px', animation:'branchSwayLeft 8s ease-in-out infinite' }}>
+        {BRANCH_PATHS.slice(0,12).map((d,i) => (
+          <path key={`g${i}`} d={d} stroke="#2a1a0e"
+            strokeWidth={BRANCH_WIDTHS[i]||2} fill="none" strokeLinecap="round" opacity="0.06"/>
+        ))}
+        {BRANCH_PATHS.slice(0,12).map((d,i) => {
+          const start = i < 4 ? 0 : i < 8 ? 0.12 : 0.25
+          const lp = Math.max(0, Math.min(1, (drawProgress - start) / (1 - start)))
+          return (
+            <path key={`ink${i}`} d={d} stroke="#2a1a0e"
+              strokeWidth={BRANCH_WIDTHS[i]||2} fill="none" strokeLinecap="round"
+              filter={i < 4 ? "url(#inkblur)" : undefined}
+              opacity={(i<2?0.82:i<6?0.65:0.5)*lp}
+              style={{ strokeDasharray:2000, strokeDashoffset:2000*(1-lp) }}
+            />
+          )
+        })}
+      </g>
 
-      {/* Ink branches draw-in */}
-      {BRANCH_PATHS.map((d, i) => {
-        const start = i < 4 ? 0 : i < 8 ? 0.12 : 0.25
-        const local = Math.max(0, Math.min(1, (drawProgress - start) / (1 - start)))
-        return (
-          <path key={`ink_${i}`} d={d} stroke="#2a1a0e"
-            strokeWidth={BRANCH_WIDTHS[i]||2} fill="none" strokeLinecap="round"
-            filter={i < 4 ? "url(#inkblur)" : undefined}
-            opacity={(i<2?0.82:i<6?0.65:0.5) * local}
-            style={{ strokeDasharray:2000, strokeDashoffset: 2000*(1-local) }}
-          />
-        )
-      })}
+      {/* Right branch group — sways with slight phase offset, pivoting from top-right */}
+      <g style={{ transformOrigin:'1440px 120px', animation:'branchSwayRight 9s ease-in-out infinite' }}>
+        {BRANCH_PATHS.slice(12).map((d,i) => (
+          <path key={`gr${i}`} d={d} stroke="#2a1a0e"
+            strokeWidth={BRANCH_WIDTHS[i+12]||2} fill="none" strokeLinecap="round" opacity="0.06"/>
+        ))}
+        {BRANCH_PATHS.slice(12).map((d,i) => {
+          const lp = Math.max(0, Math.min(1, (drawProgress - 0.12) / 0.88))
+          return (
+            <path key={`inkr${i}`} d={d} stroke="#2a1a0e"
+              strokeWidth={BRANCH_WIDTHS[i+12]||2} fill="none" strokeLinecap="round"
+              filter="url(#inkblur)"
+              opacity={0.62*lp}
+              style={{ strokeDasharray:2000, strokeDashoffset:2000*(1-lp) }}
+            />
+          )
+        })}
+      </g>
 
-      {/* Blossoms */}
+      {/* Blossoms — wrapped in matching branch sway */}
+      <g style={{ transformOrigin:'-10px 820px', animation:'branchSwayLeft 8s ease-in-out infinite' }}>
       {[
         [362,338,1.1],[348,393,0.95],[318,332,0.9],[288,286,0.85],[332,276,0.8],
         [455,216,1.05],[430,163,0.88],[480,160,0.82],[415,270,0.92],[528,338,0.88],
         [566,203,0.78],[525,476,0.92],[500,418,0.85],[518,478,0.78],[580,428,0.9],
         [737,308,0.82],[580,348,0.75],[410,498,0.88],
       ].map(([cx,cy,s],i) => {
-        const bp = Math.max(0, (drawProgress - 0.45) / 0.55)
+        const bp = Math.max(0,(drawProgress-0.45)/0.55)
         return (
-          <g key={`b1_${i}`} transform={`translate(${cx},${cy}) scale(${s})`} opacity={bp}>
+          <g key={`bl${i}`} transform={`translate(${cx},${cy}) scale(${s})`} opacity={bp}>
             {[0,72,144,216,288].map((a,j) => {
-              const rad=a*Math.PI/180, px=Math.cos(rad)*9, py=Math.sin(rad)*9
+              const r=a*Math.PI/180,px=Math.cos(r)*9,py=Math.sin(r)*9
               return <ellipse key={j} cx={px} cy={py} rx="5.5" ry="3.2"
                 fill={i%4===0?'#c97888':i%4===1?'#d4909e':i%4===2?'#e8b8c4':'#bf7080'}
                 opacity="0.88" transform={`rotate(${a+90},${px},${py})`}/>
             })}
             <circle r="3.5" fill="#f0d080" opacity="0.9"/>
             <circle r="1.5" fill="#c87840" opacity="0.85"/>
-            {[0,60,120,180,240,300].map((a,j) => {
-              const rad=a*Math.PI/180
-              return <line key={j} x1={Math.cos(rad)*2} y1={Math.sin(rad)*2}
-                x2={Math.cos(rad)*6} y2={Math.sin(rad)*6}
-                stroke="#8a4820" strokeWidth="0.5" opacity="0.6"/>
-            })}
           </g>
         )
       })}
 
-      {/* Buds */}
-      {[[375,390],[350,454],[400,528],[470,464],[540,400],[560,268],[490,215]].map(([cx,cy],i) => (
-        <g key={`bud${i}`} transform={`translate(${cx},${cy})`}
-          opacity={Math.max(0,(drawProgress-0.45)/0.55)}>
-          <ellipse rx="3.5" ry="5.5" fill={i%2===0?'#c97888':'#d4a0a8'} opacity="0.8"/>
-          <path d="M0,-5 C2,-3 2,0 0,3" stroke="#2a1a0e" strokeWidth="0.8" fill="none" opacity="0.5"/>
-        </g>
-      ))}
+      </g>
 
-      {/* Right branch blossoms */}
+      {/* Right branch blossoms — matching right sway */}
+      <g style={{ transformOrigin:'1440px 120px', animation:'branchSwayRight 9s ease-in-out infinite' }}>
       {[[1095,318,0.9],[1120,406,0.85],[1160,326,0.88],[1116,403,0.78],[1030,408,0.82],[1250,276,0.75],[1300,198,0.8],[1240,224,0.85]].map(([cx,cy,s],i) => (
-        <g key={`b2_${i}`} transform={`translate(${cx},${cy}) scale(${s})`}
+        <g key={`rb${i}`} transform={`translate(${cx},${cy}) scale(${s})`}
           opacity={Math.max(0,(drawProgress-0.55)/0.45)}>
           {[0,72,144,216,288].map((a,j) => {
-            const rad=a*Math.PI/180,px=Math.cos(rad)*9,py=Math.sin(rad)*9
+            const r=a*Math.PI/180,px=Math.cos(r)*9,py=Math.sin(r)*9
             return <ellipse key={j} cx={px} cy={py} rx="5.5" ry="3.2"
               fill={i%3===0?'#d4909e':i%3===1?'#e0b0bc':'#c88090'}
               opacity="0.82" transform={`rotate(${a+90},${px},${py})`}/>
@@ -300,78 +651,13 @@ function BlossomBackground({ drawProgress, swayT }) {
           <circle r="1.5" fill="#c87840" opacity="0.8"/>
         </g>
       ))}
-
-      {/* ── Ground meadow — full width swaying grass ── */}
-      <g opacity={drawProgress}>
-        {GRASS_BLADES.map(([x, baseY, h, color, w, type], i) => {
-          // Each blade pivots from its base, all share the same breeze sway
-          // Taller blades sway more (h/90 scaling factor)
-          const bladeSway = swayRad * (h / 85) * (type === 1 ? 1.2 : 1)
-          const tipX = x + Math.sin(bladeSway) * h
-          const tipY = baseY - h * Math.cos(bladeSway)
-          const ctrlX = x + Math.sin(bladeSway * 0.5) * h * 0.5
-          const ctrlY = baseY - h * 0.55
-
-          return (
-            <path key={`gb_${i}`}
-              d={`M ${x},${baseY} Q ${ctrlX},${ctrlY} ${tipX},${tipY}`}
-              stroke={color} strokeWidth={w} fill="none" strokeLinecap="round"
-              opacity={type === 0 ? 0.55 : type === 1 ? 0.65 : 0.45}
-            />
-          )
-        })}
-
-        {/* Wildflower heads — sway with their stems */}
-        {FLOWER_HEADS.map(([x, y, type, color], i) => {
-          const stemH = 70 + i * 8
-          const flowerSway = swayRad * (stemH / 85)
-          const fx = x + Math.sin(flowerSway) * stemH
-          const fy = y - stemH * (Math.cos(flowerSway) - 1) // offset from sway
-
-          if (type === 0) {
-            // Daisy
-            return (
-              <g key={`fh_${i}`} transform={`translate(${fx},${fy})`}>
-                {[0,45,90,135,180,225,270,315].map((a,j) => {
-                  const r=a*Math.PI/180
-                  return <ellipse key={j} cx={Math.cos(r)*5} cy={Math.sin(r)*5}
-                    rx="2.8" ry="1.4" fill="#f5edc8" opacity="0.8"
-                    transform={`rotate(${a},${Math.cos(r)*5},${Math.sin(r)*5})`}/>
-                })}
-                <circle r="3" fill="#e8c030" opacity="0.9"/>
-              </g>
-            )
-          } else if (type === 1) {
-            // Round wildflower
-            return (
-              <g key={`fh_${i}`} transform={`translate(${fx},${fy})`}>
-                {[0,72,144,216,288].map((a,j) => {
-                  const r=a*Math.PI/180
-                  return <ellipse key={j} cx={Math.cos(r)*5} cy={Math.sin(r)*5}
-                    rx="3" ry="1.8" fill={color} opacity="0.75"
-                    transform={`rotate(${a+90},${Math.cos(r)*5},${Math.sin(r)*5})`}/>
-                })}
-                <circle r="2.5" fill="#f0d080" opacity="0.85"/>
-              </g>
-            )
-          } else {
-            // Seed head / reed tip
-            return (
-              <ellipse key={`fh_${i}`}
-                cx={fx} cy={fy} rx="2.5" ry="5"
-                fill={color} opacity="0.6"
-                transform={`rotate(${flowerSway * 180/Math.PI},${fx},${fy})`}
-              />
-            )
-          }
-        })}
       </g>
 
-      {/* Fallen petals along ground */}
-      {[[180,875,22],[350,885,14],[520,878,18],[680,872,12],[840,880,16],[1000,875,20],[1160,882,13],[1320,870,17]].map(([x,y,s],i) => (
+      {/* Fallen petals */}
+      {[[180,858,22],[350,868,14],[520,862,18],[680,856,12],[840,864,16],[1000,858,20],[1160,866,13],[1320,855,17]].map(([x,y,s],i) => (
         <ellipse key={`fp${i}`} cx={x} cy={y} rx={s*0.4} ry={s*0.22}
           fill={i%3===0?'#c97888':i%3===1?'#d4a0a8':'#e8c0c8'}
-          opacity={(0.15+i%3*0.05)*Math.max(0,(drawProgress-0.6)/0.4)}
+          opacity={(0.2+i%3*0.06)*Math.max(0,(drawProgress-0.6)/0.4)}
           transform={`rotate(${i*28},${x},${y})`}/>
       ))}
     </svg>
@@ -408,7 +694,7 @@ function CardIcon({ type }) {
 const actions = [
   { type:'card',    label:'Make a wish card',  desc:'Choose a design, write your message, share the love', path:'/card/new' },
   { type:'bouquet', label:'Build a bouquet',    desc:'Pick flowers from the garden and wrap them up',       path:'/bouquet/new' },
-  { type:'archive', label:'My creations',       desc:'Everything you\'ve sent, in one place',               path:'/u/me' },
+  { type:'archive', label:'My creations',       desc:"Everything you've sent, in one place",               path:'/u/me' },
 ]
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -416,42 +702,39 @@ export default function Home() {
   const navigate = useNavigate()
   const [touch] = useState(() => isTouch())
   const [drawProgress, setDrawProgress] = useState(0)
-  const [swayT, setSwayT] = useState(0)
-  const particlesRef = useRef([])
-  const dimsRef = useRef({ w: 0, h: 0 })
+  const swayTRef = useRef(0)
+  const drawProgressRef = useRef(0)
+  const burstRef = useRef(null)
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const springX = useSpring(mouseX, { stiffness: 20, damping: 16 })
   const springY = useSpring(mouseY, { stiffness: 20, damping: 16 })
 
-  // ── Unified 7s reveal — everything together ──────────────────────────────
+  // 7s unified reveal
   useEffect(() => {
     const duration = 7000
     const start = performance.now()
     let raf
-    const animate = (now) => {
+    const animate = now => {
       const t = Math.min((now - start) / duration, 1)
-      // Ease in-out cubic — slow start, slow end
       const eased = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2
       setDrawProgress(eased)
+      drawProgressRef.current = eased
       if (t < 1) raf = requestAnimationFrame(animate)
     }
     raf = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  // ── Continuous sway clock ────────────────────────────────────────────────
+  // Continuous sway clock — ref only, no re-render
   useEffect(() => {
     let raf
-    const tick = () => {
-      setSwayT(t => t + 0.016)
-      raf = requestAnimationFrame(tick)
-    }
+    const tick = () => { swayTRef.current += 0.016; raf = requestAnimationFrame(tick) }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  // ── Parallax mouse ───────────────────────────────────────────────────────
+  // Mouse parallax — desktop only
   useEffect(() => {
     if (touch) return
     const onMove = e => {
@@ -462,61 +745,50 @@ export default function Home() {
     return () => window.removeEventListener('mousemove', onMove)
   }, [touch])
 
-  // ── Click to burst petals on background ─────────────────────────────────
-  const handleClick = (e) => {
+  // Click to burst petals — background only
+  const handleClick = e => {
     if (e.target.closest('button')) return
-    const x = e.clientX, y = e.clientY
-    if (!particlesRef.current || !x) return
-    const burst = Array.from({ length: 9 }, () =>
-      makePetal(dimsRef.current.w, dimsRef.current.h, x, y, true)
-    )
-    particlesRef.current.push(...burst)
+    const x = e.clientX ?? e.touches?.[0]?.clientX
+    const y = e.clientY ?? e.touches?.[0]?.clientY
+    if (x != null && burstRef.current) {
+      const grassChance = Math.random() < 0.1 // 1 in 10
+      burstRef.current(x, y, grassChance)
+    }
   }
 
-  // All UI fades in together — starts at 50%, fully visible by 100%
   const uiOpacity = Math.max(0, (drawProgress - 0.5) / 0.5)
 
   return (
-    <div
-      onClick={handleClick}
-      onTouchStart={handleClick}
+    <div onClick={handleClick} onTouchStart={handleClick}
       style={{
         position:'relative', width:'100vw', height:'100dvh',
         overflow:'hidden', fontFamily:"'Jost', sans-serif",
         background:'#ede0cc', cursor:'default',
-      }}
-    >
+      }}>
+
       {/* Parallax background */}
       <motion.div style={{
         position:'absolute', inset:'-2%',
         x: touch ? 0 : springX,
         y: touch ? 0 : springY,
-        zIndex: 1,
+        zIndex:1,
       }}>
-        <BlossomBackground drawProgress={drawProgress} swayT={swayT} />
+        <BlossomBackground drawProgress={drawProgress}/>
       </motion.div>
 
-      {/* Particle canvas */}
-      <PetalCanvas onCanvasRef={(canvas, particles, dims) => {
-        Object.defineProperty(particlesRef, 'current', {
-          get: () => particles.current,
-          set: v => { particles.current = v },
-          configurable: true,
-        })
-        Object.defineProperty(dimsRef, 'current', {
-          get: () => dims.current,
-          set: v => { dims.current = v },
-          configurable: true,
-        })
-      }}/>
+      {/* Particle canvas — petals + grass shards */}
+      <ParticleCanvas burstRef={burstRef}/>
+
+      {/* Ground grass canvas — independent RAF, per-blade sway */}
+      <GrassCanvas drawProgressRef={drawProgressRef} swayTRef={swayTRef}/>
 
       {/* Vignette */}
       <div style={{
         position:'absolute', inset:0, zIndex:4, pointerEvents:'none',
-        background:'radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(100,70,30,0.14) 100%)',
+        background:'radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(100,70,30,0.13) 100%)',
       }}/>
 
-      {/* UI layer — all fades in together with branches */}
+      {/* UI — fades in with everything else */}
       <div style={{
         position:'relative', zIndex:5,
         width:'100%', height:'100%',
@@ -531,8 +803,7 @@ export default function Home() {
         {/* Header */}
         <div style={{ textAlign:'center' }}>
           <div style={{ marginBottom:'0.55rem' }}>
-            <svg width="130" height="18" viewBox="0 0 160 18" fill="none"
-              style={{ display:'block', margin:'0 auto' }}>
+            <svg width="130" height="18" viewBox="0 0 160 18" fill="none" style={{ display:'block', margin:'0 auto' }}>
               <path d="M4,9 C12,5 28,4 50,9" stroke="#3d2510" strokeWidth="0.8" fill="none" opacity="0.45" strokeLinecap="round"/>
               <path d="M12,9 C14,5 18,3 22,5" stroke="#3d2510" strokeWidth="0.6" fill="none" opacity="0.35" strokeLinecap="round"/>
               {[0,72,144,216,288].map((a,i) => {
@@ -555,27 +826,20 @@ export default function Home() {
             fontWeight:300, letterSpacing:'0.1em',
             color:'#1e1008', lineHeight:1,
             textShadow:'0 1px 18px rgba(245,235,210,0.5)',
-          }}>
-            Florabox
-          </h1>
+          }}>Florabox</h1>
           <p style={{
             fontFamily:"'Jost', sans-serif",
             fontSize:'clamp(0.58rem,1.3vw,0.82rem)', fontWeight:300,
             letterSpacing:'clamp(0.12em,1.5vw,0.28em)',
             textTransform:'uppercase', color:'#3d2510',
             marginTop:'0.9rem', opacity:0.72,
-          }}>
-            Send a little joy today
-          </p>
+          }}>Send a little joy today</p>
         </div>
 
         {/* Action cards */}
         <div
-          style={{
-            display:'flex', flexDirection:'column',
-            gap:'0.65rem', width:'100%', maxWidth:'860px',
-            pointerEvents: uiOpacity > 0.5 ? 'auto' : 'none',
-          }}
+          style={{ display:'flex', flexDirection:'column', gap:'0.65rem', width:'100%', maxWidth:'860px',
+            pointerEvents: uiOpacity > 0.5 ? 'auto' : 'none' }}
           ref={el => {
             if (!el) return
             const mq = window.matchMedia('(min-width: 640px)')
@@ -589,26 +853,24 @@ export default function Home() {
           }}
         >
           {actions.map((a, i) => (
-            <motion.button
-              key={a.type}
-              whileHover={touch ? {} : { y: -5, scale: 1.022 }}
-              whileTap={{ scale: 0.975 }}
+            <motion.button key={a.type}
+              whileHover={touch ? {} : { y:-5, scale:1.022 }}
+              whileTap={{ scale:0.975 }}
               transition={{
-                scale: { type:'tween', duration:0.15, ease:'easeOut' },
-                y: { type:'tween', duration:0.15, ease:'easeOut' },
+                scale:{ type:'tween', duration:0.15, ease:'easeOut' },
+                y:{ type:'tween', duration:0.15, ease:'easeOut' },
               }}
               onClick={() => navigate(a.path)}
               style={{
                 flex:'1 1 200px', maxWidth:'100%', minHeight:'64px',
-                background:'rgba(248,240,225,0.78)',
+                background:'rgba(248,240,225,0.82)',
                 backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
                 border:'0.8px solid rgba(140,100,60,0.2)', borderRadius:'4px',
                 padding:'clamp(1rem,2.5vw,1.5rem) clamp(1rem,2.5vw,1.5rem) clamp(0.9rem,2vw,1.3rem)',
                 cursor:'pointer', textAlign:'left', position:'relative',
                 overflow:'hidden', willChange:'transform',
                 display:'flex', alignItems:'flex-start', gap:'0.85rem',
-              }}
-            >
+              }}>
               <div style={{
                 position:'absolute', top:0, left:'12%', right:'12%', height:'1px',
                 background:'linear-gradient(90deg, transparent, rgba(140,100,60,0.35), transparent)',
@@ -627,16 +889,12 @@ export default function Home() {
                   fontFamily:"'Cormorant Garamond', serif",
                   fontSize:'clamp(1rem,2.5vw,1.18rem)', fontWeight:400,
                   color:'#1e1008', marginBottom:'0.2rem', letterSpacing:'0.02em',
-                }}>
-                  {a.label}
-                </p>
+                }}>{a.label}</p>
                 <p style={{
                   fontFamily:"'Jost', sans-serif",
                   fontSize:'clamp(0.68rem,1.5vw,0.72rem)', fontWeight:300,
                   color:'#5a3018', letterSpacing:'0.04em', lineHeight:1.6, opacity:0.8,
-                }}>
-                  {a.desc}
-                </p>
+                }}>{a.desc}</p>
                 <div style={{
                   marginTop:'0.75rem', height:'0.8px',
                   background:'linear-gradient(90deg, rgba(140,100,60,0.22), rgba(140,100,60,0.08), transparent)',
@@ -646,9 +904,7 @@ export default function Home() {
                   fontSize:'0.62rem', fontWeight:300,
                   letterSpacing:'0.18em', textTransform:'uppercase',
                   color:'#7a4820', marginTop:'0.55rem', opacity:0.6,
-                }}>
-                  Begin →
-                </p>
+                }}>Begin →</p>
               </div>
             </motion.button>
           ))}
@@ -660,9 +916,7 @@ export default function Home() {
           fontSize:'clamp(0.58rem,1.2vw,0.62rem)',
           letterSpacing:'0.2em', textTransform:'uppercase',
           color:'#3d2510', opacity:0.28, textAlign:'center', pointerEvents:'none',
-        }}>
-          Free forever · No account needed
-        </p>
+        }}>Free forever · No account needed</p>
       </div>
     </div>
   )
