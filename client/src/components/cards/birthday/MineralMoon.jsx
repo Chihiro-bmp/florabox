@@ -8,13 +8,17 @@ export default function MineralMoon({ toName = '', fromName = '', message = '' }
   useEffect(() => {
     const mc = canvasRef.current;
     if (!mc) return;
+    const dpr = window.devicePixelRatio || 1;
+    mc.width = W * dpr; mc.height = H * dpr;
     const ctx = mc.getContext('2d');
+    ctx.scale(dpr, dpr);
     let t = 0;
     let raf;
 
     const off = document.createElement('canvas');
-    off.width = W; off.height = H;
+    off.width = W * dpr; off.height = H * dpr;
     const oc = off.getContext('2d');
+    oc.scale(dpr, dpr);
 
     function buildMoon(img) {
       oc.clearRect(0, 0, W, H);
@@ -70,16 +74,16 @@ export default function MineralMoon({ toName = '', fromName = '', message = '' }
         ctx.fillStyle = `rgba(215,228,255,${a})`; ctx.fill();
       });
       const pulse = [
-        [86,23,1.4,0.04,0.98,0.80,0.00],[198,16,1.2,0.04,0.97,1.10,1.70],
-        [140,31,0.9,0.03,0.92,0.60,3.20],[18,18,0.9,0.03,0.94,1.30,0.90],
-        [54,12,0.7,0.03,0.90,0.95,2.40],[130,10,0.9,0.03,0.92,1.10,2.10],
-        [162,18,0.7,0.03,0.88,1.40,1.10],[204,14,0.9,0.04,0.94,0.70,3.70],
-        [244,22,0.8,0.03,0.90,0.75,4.10],[274,11,0.7,0.03,0.87,1.20,2.80],
-        [44,68,0.9,0.03,0.94,1.00,3.50],[104,78,0.7,0.03,0.88,0.85,1.30],
-        [118,40,0.7,0.03,0.87,1.50,0.60],[186,34,0.7,0.03,0.86,0.90,4.80],
-        [230,44,0.9,0.03,0.90,0.65,1.50],[266,39,1.0,0.04,0.92,1.25,1.40],
-        [262,60,0.7,0.03,0.86,0.80,5.20],[286,50,0.9,0.03,0.90,1.00,0.40],
-        [14,54,0.7,0.03,0.86,1.60,2.90],[52,150,0.9,0.03,0.84,0.55,1.80],
+        [86,23,1.4,0.38,0.98,0.80,0.00],[198,16,1.2,0.32,0.97,1.10,1.70],
+        [140,31,0.9,0.24,0.92,0.60,3.20],[18,18,0.9,0.24,0.94,1.30,0.90],
+        [54,12,0.7,0.16,0.90,0.95,2.40],[130,10,0.9,0.24,0.92,1.10,2.10],
+        [162,18,0.7,0.16,0.88,1.40,1.10],[204,14,0.9,0.24,0.94,0.70,3.70],
+        [244,22,0.8,0.20,0.90,0.75,4.10],[274,11,0.7,0.16,0.87,1.20,2.80],
+        [44,68,0.9,0.24,0.94,1.00,3.50],[104,78,0.7,0.16,0.88,0.85,1.30],
+        [118,40,0.7,0.16,0.87,1.50,0.60],[186,34,0.7,0.16,0.86,0.90,4.80],
+        [230,44,0.9,0.24,0.90,0.65,1.50],[266,39,1.0,0.28,0.92,1.25,1.40],
+        [262,60,0.7,0.16,0.86,0.80,5.20],[286,50,0.9,0.24,0.90,1.00,0.40],
+        [14,54,0.7,0.16,0.86,1.60,2.90],[52,150,0.9,0.24,0.84,0.55,1.80],
       ];
       pulse.forEach(([x, y, r, mn, mx, sp, ph]) => {
         const a = mn + (mx - mn) * (0.5 + 0.5 * Math.sin(time * sp + ph));
@@ -87,7 +91,7 @@ export default function MineralMoon({ toName = '', fromName = '', message = '' }
         ctx.fillStyle = `rgba(215,228,255,${a.toFixed(3)})`; ctx.fill();
       });
       [[86,23,0.00],[198,16,1.70],[140,31,3.20]].forEach(([x, y, ph]) => {
-        const ga = (0.04 + 0.70 * (0.5 + 0.5 * Math.sin(time * 0.8 + ph))).toFixed(3);
+        const ga = (0.18 + 0.38 * (0.5 + 0.5 * Math.sin(time * 0.8 + ph))).toFixed(3);
         ctx.strokeStyle = `rgba(215,228,255,${ga})`; ctx.lineWidth = 0.5; ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4); ctx.stroke();
@@ -114,6 +118,39 @@ export default function MineralMoon({ toName = '', fromName = '', message = '' }
           ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
         }
       }
+      ctx.restore();
+    }
+
+    function drawAsciiPearls(time) {
+      const mono = '"Share Tech Mono","Courier New",monospace';
+      const glyphs = ['·', '°', '○'];
+      // 32 positions inside the moon circle (MCX=150, MCY=400, MR=170), visible on canvas
+      const pearls = [
+        // y~248-252: narrow visible band near top of moon
+        [90,248,0,0.0,0.45],[150,250,1,1.2,0.52],[210,249,2,2.4,0.38],
+        // y~262-270
+        [70,262,1,0.8,0.60],[120,268,0,3.1,0.44],[180,264,2,1.7,0.55],[230,270,1,4.2,0.48],
+        // y~282-290
+        [45,282,0,0.5,0.42],[100,286,2,2.0,0.50],[155,284,1,3.6,0.57],[210,288,0,1.1,0.43],[260,283,2,4.8,0.39],
+        // y~302-310
+        [25,302,2,2.3,0.61],[80,308,0,0.9,0.46],[135,304,1,3.8,0.53],[190,306,2,1.5,0.47],[245,302,0,4.0,0.41],[280,308,1,2.7,0.58],
+        // y~322-328
+        [40,324,0,1.8,0.44],[95,328,2,3.3,0.51],[150,322,1,0.4,0.49],[205,326,0,2.9,0.56],[260,324,2,1.3,0.40],
+        // y~344-350
+        [55,344,1,0.6,0.45],[112,350,0,2.1,0.54],[168,346,2,3.7,0.42],[224,348,1,1.0,0.59],[270,344,0,4.3,0.48],
+        // y~368-375
+        [75,368,2,1.4,0.53],[140,374,0,3.2,0.46],[200,370,1,2.6,0.37],[255,375,2,0.7,0.50],
+      ];
+      ctx.save();
+      ctx.beginPath(); ctx.arc(MCX, MCY, MR, 0, Math.PI * 2); ctx.clip();
+      ctx.font = `7px ${mono}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      pearls.forEach(([x, y, gi, ph, sp]) => {
+        const a = (0.10 + 0.22 * (0.5 + 0.5 * Math.sin(time * sp + ph))).toFixed(3);
+        ctx.fillStyle = `rgba(200,220,255,${a})`;
+        ctx.fillText(glyphs[gi], x, y);
+      });
       ctx.restore();
     }
 
@@ -177,7 +214,7 @@ export default function MineralMoon({ toName = '', fromName = '', message = '' }
       ctx.setLineDash([]);
 
       ctx.font = 'italic 8.5px "Cormorant Garamond",Georgia,serif';
-      ctx.fillStyle = 'rgba(148,178,238,0.36)'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(148,178,238,0.50)'; ctx.textAlign = 'center';
       ctx.fillText('a wish sent to the stars', 150, 390);
     }
 
@@ -188,8 +225,9 @@ export default function MineralMoon({ toName = '', fromName = '', message = '' }
       const hg = ctx.createRadialGradient(MCX, MCY - MR, 0, MCX, MCY - MR, 160);
       hg.addColorStop(0, 'rgba(72,95,195,0.10)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = hg; ctx.fillRect(0, 0, W, MCY - MR + 80);
-      ctx.drawImage(off, 0, 0);
+      ctx.drawImage(off, 0, 0, W, H);
       drawDots(t);
+      drawAsciiPearls(t);
       drawUI();
       t += 0.014;
       raf = requestAnimationFrame(loop);
