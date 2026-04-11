@@ -2,18 +2,68 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 // ---------------------------------------------------------------------------
-// Placeholder cards — swap src for actual card hero images (wide crop, ≥16:9)
+// Placeholder cards — will be replaced by real user-created card data + components
 // ---------------------------------------------------------------------------
 const CARDS = [
-  { id: 1, src: 'https://images.unsplash.com/photo-1524781289445-ddf8f5695861?w=1600&q=85', label: 'Spring Birthday',   to: 'Mama'     },
-  { id: 2, src: 'https://images.unsplash.com/photo-1610194352361-4c81a6a8967e?w=1600&q=85', label: 'Thank You',         to: 'Jamie'    },
-  { id: 3, src: 'https://images.unsplash.com/photo-1618202133208-2907bebba9e1?w=1600&q=85', label: 'Get Well Soon',     to: 'Aunt Rosa'},
-  { id: 4, src: 'https://images.unsplash.com/photo-1495805442109-bf1cf975750b?w=1600&q=85', label: 'Anniversary',       to: 'Us'       },
-  { id: 5, src: 'https://images.unsplash.com/photo-1548021682-1720ed403a5b?w=1600&q=85', label: 'Thinking of You',   to: 'Gran'     },
-  { id: 6, src: 'https://images.unsplash.com/photo-1496753480864-3e588e0269b3?w=1600&q=85', label: 'Congratulations',   to: 'Lena'     },
-  { id: 7, src: 'https://images.unsplash.com/photo-1613346945084-35cccc812dd5?w=1600&q=85', label: 'Welcome Home',      to: 'Dad'      },
-  { id: 8, src: 'https://images.unsplash.com/photo-1516681100942-77d8e7f9dd97?w=1600&q=85', label: 'Just Because',      to: 'You'      },
+  { id: 1, label: 'Spring Birthday',  to: 'Mama'     },
+  { id: 2, label: 'Thank You',        to: 'Jamie'    },
+  { id: 3, label: 'Get Well Soon',    to: 'Aunt Rosa'},
+  { id: 4, label: 'Anniversary',      to: 'Us'       },
+  { id: 5, label: 'Thinking of You',  to: 'Gran'     },
+  { id: 6, label: 'Congratulations',  to: 'Lena'     },
+  { id: 7, label: 'Welcome Home',     to: 'Dad'      },
+  { id: 8, label: 'Just Because',     to: 'You'      },
 ]
+
+const NATIVE_W   = 300;
+const NATIVE_H   = 400;
+const THUMB_W    = 39;
+const THUMB_H    = 52;
+const THUMB_SCALE = THUMB_W / NATIVE_W;
+
+// Placeholder card face — rendered for cards that don't have a Component yet
+function PlaceholderCard({ card }) {
+  return (
+    <div style={{
+      width: NATIVE_W,
+      height: NATIVE_H,
+      background: 'linear-gradient(160deg, #2a1a0e 0%, #130a04 100%)',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'flex-end',
+      padding: '2rem',
+      boxSizing: 'border-box',
+      fontFamily: "'Cormorant Garamond', serif",
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Faint botanical line accent */}
+      <svg style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', opacity: 0.12 }}
+        width="80" height="80" viewBox="0 0 80 80" fill="none">
+        <circle cx="40" cy="40" r="38" stroke="#f5ede0" strokeWidth="0.5"/>
+        <line x1="40" y1="2" x2="40" y2="78" stroke="#f5ede0" strokeWidth="0.5"/>
+        <line x1="2" y1="40" x2="78" y2="40" stroke="#f5ede0" strokeWidth="0.5"/>
+      </svg>
+      <p style={{
+        fontSize: '1.35rem',
+        fontWeight: 300,
+        fontStyle: 'italic',
+        color: 'rgba(245,237,224,0.82)',
+        letterSpacing: '0.04em',
+        lineHeight: 1.25,
+        marginBottom: '0.55rem',
+      }}>{card.label}</p>
+      <p style={{
+        fontFamily: "'Jost', sans-serif",
+        fontSize: '0.52rem',
+        fontWeight: 300,
+        letterSpacing: '0.26em',
+        textTransform: 'uppercase',
+        color: 'rgba(245,237,224,0.28)',
+      }}>for {card.to}</p>
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Film-grain overlay using inline SVG noise
@@ -37,78 +87,84 @@ function GrainOverlay() {
 }
 
 // ---------------------------------------------------------------------------
-// Fullscreen expanded view — shown when a card is selected
+// Expanded card overlay — centred live card component + label
 // ---------------------------------------------------------------------------
-function ExpandedView({ card, visible }) {
+function ExpandedView({ card, visible, expandedScale }) {
+  const w = NATIVE_W * expandedScale;
+  const h = NATIVE_H * expandedScale;
+
   return (
     <div style={{
       position: 'fixed',
       inset: 0,
       zIndex: 4,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
       opacity: visible ? 1 : 0,
       pointerEvents: 'none',
       transition: 'opacity 320ms ease',
     }}>
-      {card && (
-        <img
-          key={card.id}
-          src={card.src}
-          alt={card.label}
-          draggable="false"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center',
-          }}
-        />
-      )}
-
-      {/* Bottom gradient for text legibility */}
+      {/* Semi-dark backdrop */}
       <div style={{
         position: 'absolute',
-        bottom: 0, left: 0, right: 0,
-        height: '55%',
-        background: 'linear-gradient(to bottom, transparent, rgba(5,3,1,0.93))',
+        inset: 0,
+        background: 'rgba(10,6,3,0.82)',
         pointerEvents: 'none',
       }} />
 
-      {/* Card title */}
       {card && (
         <div style={{
-          position: 'absolute',
-          bottom: '7.8rem',
-          left: 0,
-          right: 0,
-          textAlign: 'center',
-          pointerEvents: 'none',
-          opacity: visible ? 1 : 0,
-          transition: 'opacity 350ms ease',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1.4rem',
         }}>
-          <p style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontStyle: 'italic',
-            fontSize: 'clamp(1.6rem, 4.2vw, 2.8rem)',
-            fontWeight: 300,
-            color: 'rgba(255,255,255,0.88)',
-            letterSpacing: '0.04em',
-            lineHeight: 1.1,
+          {/* Scaled card */}
+          <div style={{
+            width: `${w}px`,
+            height: `${h}px`,
+            overflow: 'hidden',
+            borderRadius: '3px',
+            boxShadow: '0 40px 120px rgba(0,0,0,0.85)',
           }}>
-            {card.label}
-          </p>
-          <p style={{
-            fontFamily: "'Jost', sans-serif",
-            fontSize: 'clamp(0.52rem, 1.3vmin, 0.65rem)',
-            fontWeight: 300,
-            letterSpacing: '0.28em',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.32)',
-            marginTop: '0.7rem',
-          }}>
-            for {card.to}
-          </p>
+            <div style={{
+              width: NATIVE_W,
+              height: NATIVE_H,
+              transformOrigin: 'top left',
+              transform: `scale(${expandedScale})`,
+              pointerEvents: 'none',
+            }}>
+              <PlaceholderCard card={card} />
+            </div>
+          </div>
+
+          {/* Label */}
+          <div style={{ textAlign: 'center' }}>
+            <p style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontStyle: 'italic',
+              fontSize: 'clamp(1rem, 2.6vw, 1.4rem)',
+              fontWeight: 300,
+              color: 'rgba(245,237,224,0.72)',
+              letterSpacing: '0.06em',
+            }}>
+              {card.label}
+            </p>
+            <p style={{
+              fontFamily: "'Jost', sans-serif",
+              fontSize: '0.54rem',
+              fontWeight: 300,
+              letterSpacing: '0.24em',
+              textTransform: 'uppercase',
+              color: 'rgba(245,237,224,0.28)',
+              marginTop: '0.4rem',
+            }}>
+              for {card.to}
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -126,9 +182,9 @@ function PlusIcon() {
 }
 
 // ---------------------------------------------------------------------------
-// Individual card — owns its own hover state so the label fade works cleanly
+// Individual card — scaled PlaceholderCard inside the track
 // ---------------------------------------------------------------------------
-function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
+function GalleryCard({ card, isSelected, onClick, onHoverChange, cardW, cardH, cardScale }) {
   const [hovered, setHovered] = useState(false)
 
   return (
@@ -137,6 +193,7 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
       style={{
         position: 'relative', flexShrink: 0, cursor: 'pointer',
         overflow: 'hidden', borderRadius: '2px',
+        width: cardW, height: cardH,
         outline: isSelected ? '1px solid rgba(255,255,255,0.32)' : '1px solid transparent',
         transition: 'outline-color 300ms ease',
       }}
@@ -144,19 +201,16 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
       onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
       onClick={onClick}
     >
-      <img
-        className="gallery-img"
-        src={card.src}
-        draggable="false"
-        alt={card.label}
-        style={{
-          width: '40vmin',
-          height: '56vmin',
-          objectFit: 'cover',
-          objectPosition: 'center',
-          display: 'block',
-        }}
-      />
+      {/* Live card component scaled to fit */}
+      <div style={{
+        width: NATIVE_W,
+        height: NATIVE_H,
+        transformOrigin: 'top left',
+        transform: `scale(${cardScale})`,
+        pointerEvents: 'none',
+      }}>
+        <PlaceholderCard card={card} />
+      </div>
 
       {/* Hover / selected label */}
       <div style={{
@@ -223,6 +277,35 @@ export default function MyCreations() {
   const [navDir, setNavDir] = useState(null)
   const [expandedVisible, setExpandedVisible] = useState(false)
   const navTimeoutRef = useRef(null)
+
+  // Responsive track card dimensions — maintains native 3:4 ratio
+  const [cardDims, setCardDims] = useState({ w: 240, h: 320, scale: 0.8 })
+
+  useEffect(() => {
+    const update = () => {
+      const vmin = Math.min(window.innerWidth, window.innerHeight)
+      const w = Math.round(vmin * 0.38)
+      const h = Math.round(w * (4 / 3))
+      setCardDims({ w, h, scale: w / NATIVE_W })
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
+  // Responsive expanded scale
+  const [expandedScale, setExpandedScale] = useState(1.2)
+
+  useEffect(() => {
+    const update = () => {
+      const avH = (window.innerHeight - 190) * 0.92
+      const avW = (window.innerWidth  - 280) * 0.90
+      setExpandedScale(Math.max(0.5, Math.min(avH / NATIVE_H, avW / NATIVE_W)))
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   // Refs to avoid stale closures in event handlers
   const hoveredIdxRef  = useRef(null)
@@ -521,15 +604,19 @@ export default function MyCreations() {
               if (h) hoveredIdxRef.current = i
               else if (hoveredIdxRef.current === i) hoveredIdxRef.current = null
             }}
+            cardW={cardDims.w}
+            cardH={cardDims.h}
+            cardScale={cardDims.scale}
           />
         ))}
       </div>
       </div>
 
-      {/* ── Fullscreen expanded view (behind grain/vignette, above track) ── */}
+      {/* ── Expanded card overlay ─────────────────────────────────────────── */}
       <ExpandedView
         card={selectedIdx !== null ? CARDS[selectedIdx] : null}
         visible={expandedVisible}
+        expandedScale={expandedScale}
       />
 
       {/* ── Close expanded view — top right ───────────────────────────────── */}
@@ -676,8 +763,8 @@ export default function MyCreations() {
             key={card.id}
             onClick={() => { setSelectedIdx(i); snapToCard(i) }}
             style={{
-              width: '48px',
-              height: '34px',
+              width: `${THUMB_W}px`,
+              height: `${THUMB_H}px`,
               flexShrink: 0,
               overflow: 'hidden',
               borderRadius: '1px',
@@ -689,18 +776,15 @@ export default function MyCreations() {
               transition: 'opacity 280ms ease, outline-color 280ms ease',
             }}
           >
-            <img
-              src={card.src}
-              alt={card.label}
-              draggable="false"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                pointerEvents: 'none',
-              }}
-            />
+            <div style={{
+              width: NATIVE_W,
+              height: NATIVE_H,
+              transformOrigin: 'top left',
+              transform: `scale(${THUMB_SCALE})`,
+              pointerEvents: 'none',
+            }}>
+              <PlaceholderCard card={card} />
+            </div>
           </div>
         ))}
       </div>

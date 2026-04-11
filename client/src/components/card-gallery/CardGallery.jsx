@@ -33,9 +33,15 @@ function PlusIcon() {
 }
 
 // ---------------------------------------------------------------------------
-// Individual gallery card — JPG image in the track
+// Individual gallery card — live React component scaled into the track
 // ---------------------------------------------------------------------------
-function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
+const NATIVE_W = 300;
+const NATIVE_H = 400;
+const THUMB_W  = 39;
+const THUMB_H  = 52; // 3:4 ratio
+const THUMB_SCALE = THUMB_W / NATIVE_W;
+
+function GalleryCard({ card, isSelected, onClick, onHoverChange, cardW, cardH, cardScale }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -47,6 +53,8 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
         cursor: 'pointer',
         overflow: 'hidden',
         borderRadius: '2px',
+        width: cardW,
+        height: cardH,
         outline: isSelected ? '1px solid rgba(245,237,224,0.32)' : '1px solid transparent',
         transition: 'outline-color 300ms ease',
       }}
@@ -54,19 +62,16 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
       onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
       onClick={onClick}
     >
-      <img
-        className="gallery-img"
-        src={card.src}
-        draggable="false"
-        alt={card.name}
-        style={{
-          width: '40vmin',
-          height: '56vmin',
-          objectFit: 'cover',
-          objectPosition: 'center',
-          display: 'block',
-        }}
-      />
+      {/* Live card component scaled to fit */}
+      <div style={{
+        width: NATIVE_W,
+        height: NATIVE_H,
+        transformOrigin: 'top left',
+        transform: `scale(${cardScale})`,
+        pointerEvents: 'none',
+      }}>
+        <card.Component />
+      </div>
 
       {/* Hover / selected label */}
       <div style={{
@@ -261,6 +266,21 @@ export default function CardGallery({ cards }) {
       const avH = (window.innerHeight - 190) * 0.92;
       const avW = (window.innerWidth  - 280) * 0.90;
       setExpandedScale(Math.max(0.5, Math.min(avH / 400, avW / 300)));
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  // Responsive track card dimensions — maintains native 3:4 ratio
+  const [cardDims, setCardDims] = useState({ w: 240, h: 320, scale: 0.8 });
+
+  useEffect(() => {
+    const update = () => {
+      const vmin = Math.min(window.innerWidth, window.innerHeight);
+      const w = Math.round(vmin * 0.38);
+      const h = Math.round(w * (4 / 3));
+      setCardDims({ w, h, scale: w / NATIVE_W });
     };
     update();
     window.addEventListener('resize', update);
@@ -510,6 +530,9 @@ export default function CardGallery({ cards }) {
               if (h) hoveredIdxRef.current = i;
               else if (hoveredIdxRef.current === i) hoveredIdxRef.current = null;
             }}
+            cardW={cardDims.w}
+            cardH={cardDims.h}
+            cardScale={cardDims.scale}
           />
         ))}
       </div>
@@ -705,8 +728,8 @@ export default function CardGallery({ cards }) {
             key={card.id}
             onClick={() => { setSelectedIdx(i); snapToCard(i); }}
             style={{
-              width: '39px',
-              height: '52px',
+              width: `${THUMB_W}px`,
+              height: `${THUMB_H}px`,
               flexShrink: 0,
               overflow: 'hidden',
               borderRadius: '1px',
@@ -718,18 +741,15 @@ export default function CardGallery({ cards }) {
               transition: 'opacity 280ms ease, outline-color 280ms ease',
             }}
           >
-            <img
-              src={card.src}
-              alt={card.name}
-              draggable="false"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                pointerEvents: 'none',
-              }}
-            />
+            <div style={{
+              width: NATIVE_W,
+              height: NATIVE_H,
+              transformOrigin: 'top left',
+              transform: `scale(${THUMB_SCALE})`,
+              pointerEvents: 'none',
+            }}>
+              <card.Component />
+            </div>
           </div>
         ))}
       </div>

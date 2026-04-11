@@ -86,13 +86,20 @@ function drawParticle(ctx, p) {
   ctx.rotate(p.angle)
   ctx.globalAlpha = p.opacity
   if (p.kind === 'grass') {
-    ctx.strokeStyle = p.color
-    ctx.lineWidth = p.width
-    ctx.lineCap = 'round'
+    const hw = p.width * 0.9
+    const len = p.length
+    // Gradient from dark base to pale tip
+    const grad = ctx.createLinearGradient(0, len/2, 0, -len/2)
+    grad.addColorStop(0, '#2a4a18')
+    grad.addColorStop(0.4, p.color)
+    grad.addColorStop(1, '#c8d890')
     ctx.beginPath()
-    ctx.moveTo(0, p.length / 2)
-    ctx.quadraticCurveTo(p.width * 4, 0, 0, -p.length / 2)
-    ctx.stroke()
+    ctx.moveTo(-hw, len/2)
+    ctx.quadraticCurveTo(-hw*0.3, 0, 0, -len/2)
+    ctx.quadraticCurveTo(hw*0.3, 0, hw, len/2)
+    ctx.closePath()
+    ctx.fillStyle = grad
+    ctx.fill()
   } else {
     ctx.fillStyle = p.color
     ctx.beginPath()
@@ -211,83 +218,139 @@ const BRANCH_WIDTHS = [8,5.5,3.5,3,2.5,2,1.8,2.2,1.4,1.4,1.2,1.2,5,3.2,2,1.5,1.8
 const GROUND_LAYERS = (() => {
   const layers = []
 
+  // Helper: random lean angle — slight natural variation, mild wind bias to the right
+  const randomLean = (strength = 0.55) => (Math.random() - 0.42) * strength
+
+  // Helper: add a dense clump of blades at center cx
+  const addClump = (cx, baseY, layer, count, hMin, hMax, darkRatio, wScale, opScale) => {
+    for (let i = 0; i < count; i++) {
+      const dark = Math.random() < darkRatio
+      const spread = (Math.random() - 0.5) * 38
+      layers.push({
+        x: cx + spread,
+        h: hMin + Math.random() * (hMax - hMin),
+        baseY,
+        color: dark ? GRASS_DARK[Math.floor(Math.random() * 3)] : GRASS_LIGHT[Math.floor(Math.random() * 3)],
+        w: (dark ? 1.5 + Math.random() * 0.6 : 0.8 + Math.random() * 0.4) * wScale,
+        op: (dark ? 0.55 + Math.random() * 0.2 : 0.35 + Math.random() * 0.15) * opScale,
+        lean: randomLean(dark ? 0.6 : 0.75),
+        layer,
+        phase: Math.random() * Math.PI * 2,
+        freq: 0.28 + Math.random() * 0.28,
+        amp: 0.012 + Math.random() * 0.016,
+      })
+    }
+  }
+
   // LAYER 1 — background, short pale wisps, baseY 865
-  for (let i = 0; i < 40; i++) {
+  // Scattered background blades
+  for (let i = 0; i < 90; i++) {
     layers.push({
-      x: (i / 39) * 1440 + (Math.random() * 30 - 15),
-      h: 35 + Math.random() * 45,
+      x: Math.random() * 1440,
+      h: 28 + Math.random() * 48,
       baseY: 865,
-      color: GRASS_LIGHT[i % 3],
-      w: 0.7, op: 0.28, type: 0, layer: 1,
-      phase: Math.random() * Math.PI * 2,       // random start offset
-      freq: 0.3 + Math.random() * 0.25,         // individual sway speed
-      amp: 0.015 + Math.random() * 0.012,       // individual sway amount
+      color: GRASS_LIGHT[Math.floor(Math.random() * 3)],
+      w: 0.5 + Math.random() * 0.5,
+      op: 0.18 + Math.random() * 0.16,
+      lean: randomLean(0.45),
+      layer: 1,
+      phase: Math.random() * Math.PI * 2,
+      freq: 0.22 + Math.random() * 0.2,
+      amp: 0.010 + Math.random() * 0.009,
     })
   }
 
   // LAYER 2 — mid ground, medium blades, baseY 878
-  for (let i = 0; i < 55; i++) {
-    const dark = i % 3 !== 0
+  // Scattered mid blades
+  for (let i = 0; i < 140; i++) {
+    const dark = Math.random() < 0.6
     layers.push({
-      x: (i / 54) * 1440 + (Math.random() * 22 - 11),
-      h: 70 + Math.random() * 80,
+      x: Math.random() * 1440,
+      h: 58 + Math.random() * 95,
       baseY: 878,
-      color: dark ? GRASS_DARK[i % 3] : GRASS_LIGHT[i % 3],
-      w: dark ? 1.6 : 1.0, op: dark ? 0.55 : 0.38, type: 0, layer: 2,
+      color: dark ? GRASS_DARK[Math.floor(Math.random() * 3)] : GRASS_LIGHT[Math.floor(Math.random() * 3)],
+      w: dark ? 1.3 + Math.random() * 0.6 : 0.75 + Math.random() * 0.45,
+      op: dark ? 0.44 + Math.random() * 0.2 : 0.28 + Math.random() * 0.14,
+      lean: randomLean(0.6),
+      layer: 2,
       phase: Math.random() * Math.PI * 2,
-      freq: 0.4 + Math.random() * 0.3,
-      amp: 0.02 + Math.random() * 0.015,
+      freq: 0.32 + Math.random() * 0.28,
+      amp: 0.016 + Math.random() * 0.014,
     })
   }
-  // Mid reeds
-  for (let i = 0; i < 16; i++) {
+  // Mid clumps — dense clusters
+  for (let c = 0; c < 18; c++) {
+    addClump(60 + c * 75 + Math.random() * 30, 878, 2, 5 + Math.floor(Math.random() * 4), 70, 160, 0.65, 1.0, 1.0)
+  }
+  // Mid reeds — more of them, truly random x
+  for (let i = 0; i < 28; i++) {
     layers.push({
-      x: 45 + i * 88 + Math.random() * 35,
-      h: 130 + Math.random() * 80,
+      x: Math.random() * 1440,
+      h: 115 + Math.random() * 85,
       baseY: 878,
-      color: '#4a7030', w: 1.8, op: 0.5, type: 1, layer: 2,
+      color: '#4a7030',
+      w: 1.5 + Math.random() * 0.7,
+      op: 0.40 + Math.random() * 0.18,
+      lean: randomLean(0.35),
+      layer: 2,
       phase: Math.random() * Math.PI * 2,
-      freq: 0.25 + Math.random() * 0.2,
-      amp: 0.025 + Math.random() * 0.015,
+      freq: 0.18 + Math.random() * 0.16,
+      amp: 0.018 + Math.random() * 0.012,
     })
   }
 
-  // LAYER 3 — foreground, tall dense, baseY 900 (bottom edge)
-  for (let i = 0; i < 70; i++) {
-    const dark = i % 2 === 0
+  // LAYER 3 — foreground, tall dense, baseY 900
+  // Heavy scattered foreground blades
+  for (let i = 0; i < 200; i++) {
+    const dark = Math.random() < 0.55
     layers.push({
-      x: (i / 69) * 1440 + (Math.random() * 18 - 9),
-      h: 100 + Math.random() * 130,
+      x: Math.random() * 1440,
+      h: 85 + Math.random() * 155,
       baseY: 900,
-      color: dark ? GRASS_DARK[i % 3] : GRASS_LIGHT[i % 3],
-      w: dark ? 2.2 : 1.3, op: dark ? 0.80 : 0.58, type: 0, layer: 3,
+      color: dark ? GRASS_DARK[Math.floor(Math.random() * 3)] : GRASS_LIGHT[Math.floor(Math.random() * 3)],
+      w: dark ? 1.9 + Math.random() * 0.7 : 0.9 + Math.random() * 0.55,
+      op: dark ? 0.68 + Math.random() * 0.22 : 0.46 + Math.random() * 0.18,
+      lean: randomLean(0.7),
+      layer: 3,
       phase: Math.random() * Math.PI * 2,
-      freq: 0.35 + Math.random() * 0.3,
-      amp: 0.025 + Math.random() * 0.02,
+      freq: 0.28 + Math.random() * 0.26,
+      amp: 0.020 + Math.random() * 0.018,
     })
   }
-  // Tall foreground reeds
-  for (let i = 0; i < 22; i++) {
+  // Foreground clumps — very dense, 22 clusters
+  for (let c = 0; c < 22; c++) {
+    addClump(30 + c * 64 + Math.random() * 24, 900, 3, 7 + Math.floor(Math.random() * 5), 100, 230, 0.6, 1.1, 1.05)
+  }
+  // Tall foreground reeds — more, random
+  for (let i = 0; i < 38; i++) {
     layers.push({
-      x: 30 + i * 66 + Math.random() * 28,
-      h: 180 + Math.random() * 90,
+      x: Math.random() * 1440,
+      h: 160 + Math.random() * 110,
       baseY: 900,
-      color: '#3a6020', w: 2.5, op: 0.72, type: 1, layer: 3,
+      color: '#3a6020',
+      w: 2.0 + Math.random() * 0.7,
+      op: 0.60 + Math.random() * 0.18,
+      lean: randomLean(0.32),
+      layer: 3,
       phase: Math.random() * Math.PI * 2,
-      freq: 0.22 + Math.random() * 0.18,
-      amp: 0.03 + Math.random() * 0.018,
+      freq: 0.16 + Math.random() * 0.14,
+      amp: 0.022 + Math.random() * 0.014,
     })
   }
-  // Extra fine wisps foreground
-  for (let i = 0; i < 35; i++) {
+  // Fine wispy foreground blades — lots of them
+  for (let i = 0; i < 80; i++) {
     layers.push({
-      x: 10 + i * 41 + Math.random() * 18,
-      h: 80 + Math.random() * 80,
+      x: Math.random() * 1440,
+      h: 65 + Math.random() * 95,
       baseY: 900,
-      color: GRASS_LIGHT[i % 3], w: 0.9, op: 0.45, type: 0, layer: 3,
+      color: GRASS_LIGHT[Math.floor(Math.random() * 3)],
+      w: 0.6 + Math.random() * 0.45,
+      op: 0.32 + Math.random() * 0.18,
+      lean: randomLean(0.72),
+      layer: 3,
       phase: Math.random() * Math.PI * 2,
-      freq: 0.4 + Math.random() * 0.35,
-      amp: 0.018 + Math.random() * 0.014,
+      freq: 0.36 + Math.random() * 0.32,
+      amp: 0.013 + Math.random() * 0.012,
     })
   }
 
@@ -374,24 +437,62 @@ function GrassCanvas({ drawProgressRef, swayTRef }) {
       ctx.clearRect(0, 0, w, h)
       ctx.globalAlpha = dp
 
-      // Draw grass blades
+      // Draw grass blades — per-blade lean, cubic bezier droop, watercolour style
       parsedLayers.forEach(b => {
-        const bladeSway = Math.sin(t * b.freq + b.phase) * b.amp * b.h
-        const baseX = b.x * sx
-        const baseY = b.baseY * sy
-        const tipX = baseX + bladeSway * sx
-        const tipY = baseY - b.h * sy
-        const ctrlX = baseX + bladeSway * 0.55 * sx
-        const ctrlY = baseY - b.h * 0.56 * sy
+        const swayAngle = Math.sin(t * b.freq + b.phase) * b.amp
+        const leanAngle = b.lean + swayAngle
+        const bx = b.x * sx
+        const by = b.baseY * sy
+        const bh = b.h * sy
+        // Half-width at base — tapers toward tip
+        const hw = b.w * sx
+
+        // Tip position using per-blade lean angle
+        const tipX = bx + Math.sin(leanAngle) * bh
+        const tipY = by - Math.cos(leanAngle) * bh
+
+        // Cubic bezier control points for natural S-curve droop:
+        // Lower CP: blade starts nearly straight near root
+        const cp1x = bx + Math.sin(leanAngle * 0.28) * bh * 0.32
+        const cp1y = by - bh * 0.32
+        // Upper CP: blade accelerates into lean, adds graceful droop
+        const cp2x = bx + Math.sin(leanAngle * 0.72) * bh * 0.68
+        const cp2y = by - bh * 0.66
+
+        // Gradient — dark rich green at root, lighter yellow-green at tip
+        const grad = ctx.createLinearGradient(bx, by, tipX, tipY)
+        if (b.layer === 3) {
+          grad.addColorStop(0, '#253e14')
+          grad.addColorStop(0.38, b.color)
+          grad.addColorStop(1, '#c8d890')
+        } else if (b.layer === 2) {
+          grad.addColorStop(0, '#344e1c')
+          grad.addColorStop(0.5, b.color)
+          grad.addColorStop(1, '#d0e0a0')
+        } else {
+          grad.addColorStop(0, '#445a24')
+          grad.addColorStop(1, '#d8e8b0')
+        }
 
         ctx.beginPath()
-        ctx.moveTo(baseX, baseY)
-        ctx.quadraticCurveTo(ctrlX, ctrlY, tipX, tipY)
-        ctx.strokeStyle = b.color
-        ctx.lineWidth = b.w
+        // Left edge — up to tip via cubic bezier
+        ctx.moveTo(bx - hw, by)
+        ctx.bezierCurveTo(
+          cp1x - hw * 0.65, cp1y,
+          cp2x - hw * 0.22, cp2y,
+          tipX, tipY
+        )
+        // Right edge — back down to base
+        ctx.bezierCurveTo(
+          cp2x + hw * 0.22, cp2y,
+          cp1x + hw * 0.65, cp1y,
+          bx + hw, by
+        )
+        ctx.closePath()
+
+        ctx.fillStyle = grad
         ctx.globalAlpha = dp * b.op
-        ctx.lineCap = 'round'
-        ctx.stroke()
+        ctx.fill()
       })
 
       // Draw flower heads

@@ -123,35 +123,55 @@ export default function MineralMoon({ toName = '', fromName = '', message = '' }
 
     function drawAsciiPearls(time) {
       const mono = '"Share Tech Mono","Courier New",monospace';
-      const glyphs = ['·', '°', '○'];
-      // 32 positions inside the moon circle (MCX=150, MCY=400, MR=170), visible on canvas
-      const pearls = [
-        // y~248-252: narrow visible band near top of moon
-        [90,248,0,0.0,0.45],[150,250,1,1.2,0.52],[210,249,2,2.4,0.38],
-        // y~262-270
-        [70,262,1,0.8,0.60],[120,268,0,3.1,0.44],[180,264,2,1.7,0.55],[230,270,1,4.2,0.48],
-        // y~282-290
-        [45,282,0,0.5,0.42],[100,286,2,2.0,0.50],[155,284,1,3.6,0.57],[210,288,0,1.1,0.43],[260,283,2,4.8,0.39],
-        // y~302-310
-        [25,302,2,2.3,0.61],[80,308,0,0.9,0.46],[135,304,1,3.8,0.53],[190,306,2,1.5,0.47],[245,302,0,4.0,0.41],[280,308,1,2.7,0.58],
-        // y~322-328
-        [40,324,0,1.8,0.44],[95,328,2,3.3,0.51],[150,322,1,0.4,0.49],[205,326,0,2.9,0.56],[260,324,2,1.3,0.40],
-        // y~344-350
-        [55,344,1,0.6,0.45],[112,350,0,2.1,0.54],[168,346,2,3.7,0.42],[224,348,1,1.0,0.59],[270,344,0,4.3,0.48],
-        // y~368-375
-        [75,368,2,1.4,0.53],[140,374,0,3.2,0.46],[200,370,1,2.6,0.37],[255,375,2,0.7,0.50],
+      // * reads as a sparkle star; ○ as a ring catch; ° and · as small accent dots
+      const glyphs = ['*', '○', '°', '·'];
+
+      // Iridescent pearl tones — screen-blended so they glow on the moon surface
+      const cols = [
+        [255, 252, 228], // 0 champagne
+        [255, 180, 195], // 1 rose blush
+        [210, 225, 255], // 2 silver-blue
+        [160, 255, 215], // 3 seafoam
+        [210, 180, 255], // 4 lavender
+        [180, 238, 255], // 5 ice blue
+        [255, 230, 150], // 6 warm gold
       ];
+
+      // [x, y, glyphIdx, phase, speed, colorIdx, fontSize]
+      const pearls = [
+        // top arc ~y 248-270
+        [90,248,  0, 0.00, 0.55, 0,11], [150,250, 1, 1.20, 0.48, 2,12], [210,249, 0, 2.40, 0.62, 4,10],
+        [70,262,  2, 0.80, 0.70, 1,10], [120,268, 3, 3.10, 0.44, 5, 9], [180,264, 1, 1.70, 0.58, 3,12], [230,270, 0, 4.20, 0.50, 6,11],
+        // mid bands ~y 282-310
+        [45,282,  3, 0.50, 0.52, 3, 9], [100,286, 1, 2.00, 0.65, 0,11], [155,284, 0, 3.60, 0.47, 1,12], [210,288, 2, 1.10, 0.58, 5,10], [260,283, 1, 4.80, 0.44, 2,11],
+        [25,302,  1, 2.30, 0.68, 6,11], [80,308,  3, 0.90, 0.52, 4, 9], [135,304, 0, 3.80, 0.60, 0,12], [190,306, 1, 1.50, 0.46, 2,11], [245,302, 3, 4.00, 0.55, 1, 9], [280,308, 0, 2.70, 0.48, 3,10],
+        // lower bands ~y 322-350
+        [40,324,  2, 1.80, 0.50, 5,10], [95,328,  1, 3.30, 0.62, 1,11], [150,322, 0, 0.40, 0.44, 6,12], [205,326, 2, 2.90, 0.58, 4,10], [260,324, 1, 1.30, 0.52, 0,11],
+        [55,344,  0, 0.60, 0.55, 2,11], [112,350, 3, 2.10, 0.48, 0, 9], [168,346, 1, 3.70, 0.64, 3,12], [224,348, 0, 1.00, 0.42, 5,10], [270,344, 2, 4.30, 0.57, 1,10],
+        // deep arc ~y 368-375
+        [75,368,  1, 1.40, 0.60, 4,11], [140,374, 3, 3.20, 0.46, 6, 9], [200,370, 0, 2.60, 0.52, 2,11], [255,375, 1, 0.70, 0.68, 3,12],
+      ];
+
       ctx.save();
       ctx.beginPath(); ctx.arc(MCX, MCY, MR, 0, Math.PI * 2); ctx.clip();
-      ctx.font = `7px ${mono}`;
+      // 'screen' blending makes pearl colours additive — they glow ON the moon
+      // surface rather than sitting on top of it as opaque text
+      ctx.globalCompositeOperation = 'screen';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      pearls.forEach(([x, y, gi, ph, sp]) => {
-        const a = (0.10 + 0.22 * (0.5 + 0.5 * Math.sin(time * sp + ph))).toFixed(3);
-        ctx.fillStyle = `rgba(200,220,255,${a})`;
+
+      pearls.forEach(([x, y, gi, ph, sp, ci, fs]) => {
+        // Squared sine → sharp catch-light peaks, long dim valleys
+        const raw = 0.5 + 0.5 * Math.sin(time * sp + ph);
+        const pulse = raw * raw;
+        const a = (0.15 + 0.82 * pulse).toFixed(3); // 0.15 → 0.97
+        const [r, g, b] = cols[ci];
+        ctx.font = `${fs}px ${mono}`;
+        ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
         ctx.fillText(glyphs[gi], x, y);
       });
-      ctx.restore();
+
+      ctx.restore(); // also resets globalCompositeOperation
     }
 
     function drawUI() {
