@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useTransition } from '../../context/TransitionContext';
 
 const THUMB_H = 80;
 const THUMB_W = 60;
@@ -8,11 +8,11 @@ const NATIVE_H = 400;
 const THUMB_SCALE = THUMB_H / NATIVE_H;
 
 export default function CardPreviewStrip({ cards, selectedIndex, onSelect }) {
-  const navigate = useNavigate();
+  const { transitionTo } = useTransition();
   const selectedCard = cards[selectedIndex];
 
   const handleUse = () => {
-    navigate(`/card/new?preset=${selectedCard.id}`);
+    transitionTo(`/card/new?preset=${selectedCard.id}`);
   };
 
   return (

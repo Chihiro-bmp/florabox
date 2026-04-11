@@ -1,10 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useTransition } from '../../context/TransitionContext';
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const GOLD        = 'rgba(201,168,76,0.88)';  // gold — nav button hover
+const GOLD_BORDER = 'rgba(201,168,76,0.65)';  // gold — selected card glow ring
+const GOLD_GLOW   = 'rgba(201,168,76,0.10)';  // gold — selected card ambient glow
+const ROSE        = 'rgba(196,149,106,0.75)';  // rose — CTA text
+const ROSE_FULL   = 'rgba(196,149,106,1)';     // rose — CTA hover text
+const ROSE_BORDER = 'rgba(196,149,106,0.65)';  // rose — CTA border
+// UI chrome: warm parchment — "testament of time" aged cream, not gold
+const CHROME      = 'rgba(245,237,224,0.52)';  // eyebrow label, counter
+const CHROME_RULE = 'rgba(245,237,224,0.20)';  // hairline rule
 
 // ---------------------------------------------------------------------------
-// Film-grain overlay
+// Texture overlays
 // ---------------------------------------------------------------------------
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`;
+const WASHI_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23w)' opacity='1'/%3E%3C/svg%3E")`;
+
+function WashiOverlay() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 6,
+        pointerEvents: 'none',
+        backgroundImage: WASHI_SVG,
+        backgroundSize: '300px 300px',
+        opacity: 0.045,
+        mixBlendMode: 'overlay',
+      }}
+    />
+  );
+}
 
 function GrainOverlay() {
   return (
@@ -53,10 +81,10 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange, cardW, cardH, c
         cursor: 'pointer',
         overflow: 'hidden',
         borderRadius: '2px',
-        width: cardW,
-        height: cardH,
-        outline: isSelected ? '1px solid rgba(245,237,224,0.32)' : '1px solid transparent',
-        transition: 'outline-color 300ms ease',
+        boxShadow: isSelected
+          ? `0 0 0 1px ${GOLD_BORDER}, 0 0 28px 8px ${GOLD_GLOW}`
+          : '0 0 0 1px transparent',
+        transition: 'box-shadow 300ms ease',
       }}
       onMouseEnter={() => { setHovered(true);  onHoverChange?.(true);  }}
       onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
@@ -157,7 +185,7 @@ function ExpandedCard({ card, visible, expandedScale }) {
             height: `${h}px`,
             overflow: 'hidden',
             borderRadius: '3px',
-            boxShadow: '0 40px 120px rgba(0,0,0,0.85)',
+            boxShadow: `0 0 0 1px rgba(196,149,106,0.55), 0 40px 120px rgba(0,0,0,0.85)`,
           }}>
             <div style={{
               width: NATIVE_W,
@@ -177,12 +205,12 @@ function ExpandedCard({ card, visible, expandedScale }) {
             transition: 'opacity 300ms ease',
           }}>
             <p style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontStyle: 'italic',
+              fontFamily: card.nameFont || "'Cormorant Garamond', serif",
+              fontStyle: card.nameItalic !== false ? 'italic' : 'normal',
               fontSize: 'clamp(1rem, 2.6vw, 1.4rem)',
               fontWeight: 300,
-              color: 'rgba(245,237,224,0.72)',
-              letterSpacing: '0.06em',
+              color: card.nameColor || 'rgba(201,168,76,0.88)',
+              letterSpacing: card.nameFont?.includes('Mono') ? '0.12em' : '0.06em',
             }}>
               {card.name}
             </p>
@@ -192,7 +220,7 @@ function ExpandedCard({ card, visible, expandedScale }) {
               fontWeight: 300,
               letterSpacing: '0.24em',
               textTransform: 'uppercase',
-              color: 'rgba(245,237,224,0.28)',
+              color: 'rgba(245,237,224,0.32)',
               marginTop: '0.4rem',
             }}>
               {card.occasion}
@@ -208,9 +236,24 @@ function ExpandedCard({ card, visible, expandedScale }) {
 // Main gallery component
 // ---------------------------------------------------------------------------
 export default function CardGallery({ cards }) {
-  const navigate = useNavigate();
+  const { transitionTo } = useTransition();
   const trackRef     = useRef(null);
   const trackAnimRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // Show fixed UI elements only once the hero has scrolled mostly away.
+  // Threshold: hero is ~100dvh tall; 40% scroll = hero 40% gone = safe to show gallery chrome.
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const heroGone = window.scrollY > window.innerHeight * 0.4;
+      setInView(heroGone);
+      if (!heroGone) setSelectedIdx(null);
+    };
+    check(); // run once on mount
+    window.addEventListener('scroll', check, { passive: true });
+    return () => window.removeEventListener('scroll', check);
+  }, []);
 
   // Drag state
   const mouseDownAt  = useRef(0);
@@ -315,7 +358,7 @@ export default function CardGallery({ cards }) {
       trackAnimRef.current?.cancel();
       trackAnimRef.current = track.animate(
         { transform: `translateX(${pct}%)` },
-        { duration, fill: 'forwards', easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }
+        { duration, fill: 'forwards', easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }
       );
       trackAnimRef.current.onfinish = () => {
         track.style.transform = `translateX(${pct}%)`;
@@ -343,7 +386,7 @@ export default function CardGallery({ cards }) {
 
     currentPct.current = clamped;
     prevPct.current    = clamped;
-    applyTrackPosition(clamped, 800);
+    applyTrackPosition(clamped, 600);
   }, [applyTrackPosition, getClampBounds]);
 
   const handleCardClick = useCallback((index) => {
@@ -471,43 +514,59 @@ export default function CardGallery({ cards }) {
   const atEnd      = selectedIdx === cards.length - 1;
 
   return (
-    <div style={{
-      position: 'relative',
-      width: '100%',
-      height: '100dvh',
-      overflow: 'hidden',
-      background: '#0d0905',
-      cursor: dragging ? 'grabbing' : 'grab',
-      userSelect: 'none',
-    }}>
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100dvh',
+        overflow: 'hidden',
+        background: '#080709',
+        cursor: dragging ? 'grabbing' : 'grab',
+        userSelect: 'none',
+      }}
+    >
 
-      <GrainOverlay />
+      {inView && <WashiOverlay />}
+      {inView && <GrainOverlay />}
 
-      {/* Radial vignette */}
-      <div aria-hidden="true" style={{
-        position: 'fixed', inset: 0, zIndex: 8, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(4,2,1,0.72) 100%)',
-      }} />
+      {/* Radial vignette — only when gallery is in view */}
+      {inView && (
+        <div aria-hidden="true" style={{
+          position: 'fixed', inset: 0, zIndex: 8, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(4,2,1,0.72) 100%)',
+        }} />
+      )}
 
-      {/* Eyebrow label */}
+      {/* Eyebrow label + gold hairline — only when gallery is in view */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0,
         zIndex: 10,
-        padding: '1.8rem 2rem',
-        display: 'flex',
-        justifyContent: 'center',
         pointerEvents: 'none',
+        opacity: inView ? 1 : 0,
+        transition: 'opacity 400ms ease',
       }}>
-        <p style={{
-          fontFamily: "'Jost', sans-serif",
-          fontSize: '0.62rem',
-          fontWeight: 300,
-          letterSpacing: '0.3em',
-          textTransform: 'uppercase',
-          color: 'rgba(245,237,224,0.52)',
+        <div style={{
+          padding: '1.8rem 2rem',
+          display: 'flex',
+          justifyContent: 'center',
         }}>
-          Choose a card
-        </p>
+          <p style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: '0.62rem',
+            fontWeight: 300,
+            letterSpacing: '0.3em',
+            textTransform: 'uppercase',
+            color: CHROME,
+          }}>
+            Choose a card
+          </p>
+        </div>
+        <div style={{
+          height: '1px',
+          background: CHROME_RULE,
+          marginTop: '-0.8rem',
+        }} />
       </div>
 
       {/* Image track — outer div handles vertical centering (React), inner div handles horizontal scroll (JS) */}
@@ -600,8 +659,8 @@ export default function CardGallery({ cards }) {
           transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
           pointerEvents: navVisible ? 'auto' : 'none',
         }}
-        onMouseEnter={e => { if (!atStart) e.currentTarget.style.opacity = '1'; }}
-        onMouseLeave={e => { if (!atStart) e.currentTarget.style.opacity = '0.65'; }}
+        onMouseEnter={e => { if (!atStart) { e.currentTarget.style.color = GOLD; e.currentTarget.style.opacity = '1'; } }}
+        onMouseLeave={e => { if (!atStart) { e.currentTarget.style.color = 'white'; e.currentTarget.style.opacity = '0.65'; } }}
       >
         <span style={{
           display: 'inline-flex',
@@ -631,8 +690,8 @@ export default function CardGallery({ cards }) {
           transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
           pointerEvents: navVisible ? 'auto' : 'none',
         }}
-        onMouseEnter={e => { if (!atEnd) e.currentTarget.style.opacity = '1'; }}
-        onMouseLeave={e => { if (!atEnd) e.currentTarget.style.opacity = '0.65'; }}
+        onMouseEnter={e => { if (!atEnd) { e.currentTarget.style.color = GOLD; e.currentTarget.style.opacity = '1'; } }}
+        onMouseLeave={e => { if (!atEnd) { e.currentTarget.style.color = 'white'; e.currentTarget.style.opacity = '0.65'; } }}
       >
         <span style={{
           display: 'inline-flex',
@@ -659,7 +718,7 @@ export default function CardGallery({ cards }) {
           fontSize: '0.56rem',
           fontWeight: 300,
           letterSpacing: '0.24em',
-          color: 'white',
+          color: CHROME,
         }}>
           {selectedIdx !== null ? `${selectedIdx + 1} — ${cards.length}` : ''}
         </p>
@@ -667,14 +726,14 @@ export default function CardGallery({ cards }) {
 
       {/* ── "Use this card" CTA — bottom left ─────────────────────────────── */}
       <button
-        onClick={() => navigate(`/card/new?preset=${cards[selectedIdx]?.id}`)}
+        onClick={() => transitionTo(`/card/new?preset=${cards[selectedIdx]?.id}`)}
         style={{
           position: 'fixed',
           bottom: '1.7rem',
           left: '2rem',
           zIndex: 20,
           background: 'none',
-          border: '0.5px solid rgba(245,237,224,0.28)',
+          border: `0.5px solid ${ROSE_BORDER}`,
           borderRadius: '2px',
           cursor: 'pointer',
           padding: '0.55rem 1.1rem',
@@ -683,10 +742,10 @@ export default function CardGallery({ cards }) {
           fontWeight: 400,
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
-          color: 'rgba(245,237,224,0.65)',
+          color: ROSE,
           opacity: navVisible ? 1 : 0,
           transform: navVisible ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 480ms ease, transform 550ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          transition: 'opacity 480ms ease, transform 550ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 280ms ease',
           pointerEvents: navVisible ? 'auto' : 'none',
           display: 'flex',
           alignItems: 'center',
@@ -694,12 +753,14 @@ export default function CardGallery({ cards }) {
           whiteSpace: 'nowrap',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.color = 'rgba(245,237,224,0.95)';
-          e.currentTarget.style.borderColor = 'rgba(245,237,224,0.55)';
+          e.currentTarget.style.color = ROSE_FULL;
+          e.currentTarget.style.borderColor = ROSE_FULL;
+          e.currentTarget.style.boxShadow = '0 0 14px rgba(196,149,106,0.12)';
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.color = 'rgba(245,237,224,0.65)';
-          e.currentTarget.style.borderColor = 'rgba(245,237,224,0.28)';
+          e.currentTarget.style.color = ROSE;
+          e.currentTarget.style.borderColor = ROSE_BORDER;
+          e.currentTarget.style.boxShadow = 'none';
         }}
       >
         Use this card
@@ -736,7 +797,7 @@ export default function CardGallery({ cards }) {
               cursor: 'pointer',
               opacity: selectedIdx === i ? 1 : 0.32,
               outline: selectedIdx === i
-                ? '1px solid rgba(245,237,224,0.5)'
+                ? `1px solid ${GOLD_BORDER}`
                 : '1px solid transparent',
               transition: 'opacity 280ms ease, outline-color 280ms ease',
             }}
@@ -758,7 +819,7 @@ export default function CardGallery({ cards }) {
       <div style={{
         position: 'fixed', bottom: '2.2rem', left: 0, right: 0,
         textAlign: 'center', zIndex: 10,
-        opacity: interacted ? 0 : 0.35,
+        opacity: (inView && !interacted) ? 0.35 : 0,
         transition: 'opacity 700ms ease',
         pointerEvents: 'none',
       }}>

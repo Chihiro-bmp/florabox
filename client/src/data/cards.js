@@ -9,6 +9,10 @@ export const CARDS = [
     occasion: 'Birthday',
     theme: 'botanical',
     Component: MarbledRose,
+    // Warm rose-brown — echoes the marbled cream and crimson of the card itself
+    nameColor: 'rgba(90,55,25,0.82)',
+    nameFont: '"Cormorant Garamond", Georgia, serif',
+    nameItalic: true,
   },
   {
     id: 'birthday-golden-hour',
@@ -16,6 +20,10 @@ export const CARDS = [
     occasion: 'Birthday',
     theme: 'botanical',
     Component: GoldenHour,
+    // Warm amber — echoes the honey watercolour wash and golden petals
+    nameColor: 'rgba(160,100,35,0.82)',
+    nameFont: '"Cormorant Garamond", Georgia, serif',
+    nameItalic: true,
   },
   {
     id: 'birthday-mineral-moon',
@@ -23,5 +31,9 @@ export const CARDS = [
     occasion: 'Birthday',
     theme: 'cosmic',
     Component: MineralMoon,
+    // Steel blue — echoes the titanium highlights and star field
+    nameColor: 'rgba(190,210,252,0.85)',
+    nameFont: '"Share Tech Mono", monospace',
+    nameItalic: false,
   },
 ];
