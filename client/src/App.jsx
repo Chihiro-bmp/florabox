@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { TransitionProvider } from './context/TransitionContext'
+import TransitionCurtain from './components/TransitionCurtain'
 import Home from './pages/Home'
 import CardGalleryPage from './pages/CardGalleryPage'
 import CardBuilder from './pages/CardBuilder'
@@ -10,14 +12,17 @@ import './index.css'
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/gallery" element={<CardGalleryPage />} />
-        <Route path="/card/new" element={<CardBuilder />} />
-        <Route path="/bouquet/new" element={<BouquetBuilder />} />
-        <Route path="/view/:id" element={<CardView />} />
-        <Route path="/u/:username" element={<MyCreations />} />
-      </Routes>
+      <TransitionProvider>
+        <TransitionCurtain />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/gallery" element={<CardGalleryPage />} />
+          <Route path="/card/new" element={<CardBuilder />} />
+          <Route path="/bouquet/new" element={<BouquetBuilder />} />
+          <Route path="/view/:id" element={<CardView />} />
+          <Route path="/u/:username" element={<MyCreations />} />
+        </Routes>
+      </TransitionProvider>
     </BrowserRouter>
   )
 }
