@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useTransition } from '../context/TransitionContext'
 
 // ---------------------------------------------------------------------------
 // Placeholder cards — swap src for actual card hero images (wide crop, ≥16:9)
@@ -199,7 +199,7 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange }) {
 // Main page
 // ---------------------------------------------------------------------------
 export default function MyCreations() {
-  const navigate = useNavigate()
+  const { transitionTo } = useTransition()
   const trackRef     = useRef(null)
   const trackAnimRef = useRef(null)
 
@@ -472,7 +472,7 @@ export default function MyCreations() {
         gap: '1.4rem',
       }}>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => transitionTo('/')}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'rgba(255,255,255,0.35)',

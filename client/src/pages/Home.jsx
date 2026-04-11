@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useTransition } from '../context/TransitionContext'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 
 const isTouch = () => window.matchMedia('(hover: none)').matches
@@ -699,7 +699,7 @@ const actions = [
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Home() {
-  const navigate = useNavigate()
+  const { transitionTo } = useTransition()
   const [touch] = useState(() => isTouch())
   const [drawProgress, setDrawProgress] = useState(0)
   const swayTRef = useRef(0)
@@ -860,7 +860,7 @@ export default function Home() {
                 scale:{ type:'tween', duration:0.15, ease:'easeOut' },
                 y:{ type:'tween', duration:0.15, ease:'easeOut' },
               }}
-              onClick={() => navigate(a.path)}
+              onClick={() => transitionTo(a.path)}
               style={{
                 flex:'1 1 200px', maxWidth:'100%', minHeight:'64px',
                 background:'rgba(248,240,225,0.82)',
