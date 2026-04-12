@@ -242,16 +242,16 @@ const GROUND_LAYERS = (() => {
     }
   }
 
-  // LAYER 1 — background, short pale wisps, baseY 865
+  // LAYER 1 — background, short pale wisps — rooted at ground, depth via opacity
   // Scattered background blades
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 150; i++) {
     layers.push({
       x: Math.random() * 1440,
       h: 28 + Math.random() * 48,
-      baseY: 865,
+      baseY: 900,
       color: GRASS_LIGHT[Math.floor(Math.random() * 3)],
       w: 0.5 + Math.random() * 0.5,
-      op: 0.18 + Math.random() * 0.16,
+      op: 0.12 + Math.random() * 0.10,
       lean: randomLean(0.45),
       layer: 1,
       phase: Math.random() * Math.PI * 2,
@@ -260,17 +260,17 @@ const GROUND_LAYERS = (() => {
     })
   }
 
-  // LAYER 2 — mid ground, medium blades, baseY 878
+  // LAYER 2 — mid ground, medium blades — rooted at ground, depth via opacity
   // Scattered mid blades
-  for (let i = 0; i < 140; i++) {
+  for (let i = 0; i < 220; i++) {
     const dark = Math.random() < 0.6
     layers.push({
       x: Math.random() * 1440,
       h: 58 + Math.random() * 95,
-      baseY: 878,
+      baseY: 900,
       color: dark ? GRASS_DARK[Math.floor(Math.random() * 3)] : GRASS_LIGHT[Math.floor(Math.random() * 3)],
       w: dark ? 1.3 + Math.random() * 0.6 : 0.75 + Math.random() * 0.45,
-      op: dark ? 0.44 + Math.random() * 0.2 : 0.28 + Math.random() * 0.14,
+      op: dark ? 0.30 + Math.random() * 0.14 : 0.18 + Math.random() * 0.10,
       lean: randomLean(0.6),
       layer: 2,
       phase: Math.random() * Math.PI * 2,
@@ -279,18 +279,18 @@ const GROUND_LAYERS = (() => {
     })
   }
   // Mid clumps — dense clusters
-  for (let c = 0; c < 18; c++) {
-    addClump(60 + c * 75 + Math.random() * 30, 878, 2, 5 + Math.floor(Math.random() * 4), 70, 160, 0.65, 1.0, 1.0)
+  for (let c = 0; c < 26; c++) {
+    addClump(30 + c * 54 + Math.random() * 22, 900, 2, 6 + Math.floor(Math.random() * 5), 70, 160, 0.65, 1.0, 0.60)
   }
   // Mid reeds — more of them, truly random x
-  for (let i = 0; i < 28; i++) {
+  for (let i = 0; i < 42; i++) {
     layers.push({
       x: Math.random() * 1440,
       h: 115 + Math.random() * 85,
-      baseY: 878,
+      baseY: 900,
       color: '#4a7030',
       w: 1.5 + Math.random() * 0.7,
-      op: 0.40 + Math.random() * 0.18,
+      op: 0.28 + Math.random() * 0.14,
       lean: randomLean(0.35),
       layer: 2,
       phase: Math.random() * Math.PI * 2,
@@ -301,7 +301,7 @@ const GROUND_LAYERS = (() => {
 
   // LAYER 3 — foreground, tall dense, baseY 900
   // Heavy scattered foreground blades
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 300; i++) {
     const dark = Math.random() < 0.55
     layers.push({
       x: Math.random() * 1440,
@@ -317,12 +317,12 @@ const GROUND_LAYERS = (() => {
       amp: 0.020 + Math.random() * 0.018,
     })
   }
-  // Foreground clumps — very dense, 22 clusters
-  for (let c = 0; c < 22; c++) {
-    addClump(30 + c * 64 + Math.random() * 24, 900, 3, 7 + Math.floor(Math.random() * 5), 100, 230, 0.6, 1.1, 1.05)
+  // Foreground clumps — very dense, 30 clusters
+  for (let c = 0; c < 30; c++) {
+    addClump(20 + c * 48 + Math.random() * 18, 900, 3, 8 + Math.floor(Math.random() * 6), 100, 230, 0.6, 1.1, 1.05)
   }
   // Tall foreground reeds — more, random
-  for (let i = 0; i < 38; i++) {
+  for (let i = 0; i < 55; i++) {
     layers.push({
       x: Math.random() * 1440,
       h: 160 + Math.random() * 110,
@@ -338,7 +338,7 @@ const GROUND_LAYERS = (() => {
     })
   }
   // Fine wispy foreground blades — lots of them
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 130; i++) {
     layers.push({
       x: Math.random() * 1440,
       h: 65 + Math.random() * 95,
@@ -366,7 +366,7 @@ const FLOWER_HEADS = (() => {
     flowers.push({
       x: 60 + i * 140 + Math.random() * 40,
       stemH: 40 + Math.random() * 30,
-      baseY: 865, layer: 1,
+      baseY: 900, layer: 1,
       type: 'daisy',
       color: '#f5edc8', scale: 0.6,
     })
@@ -377,7 +377,7 @@ const FLOWER_HEADS = (() => {
     flowers.push({
       x: 40 + i * 100 + Math.random() * 35,
       stemH: 60 + Math.random() * 50,
-      baseY: 878, layer: 2,
+      baseY: 900, layer: 2,
       type: i % 3 === 0 ? 'clover' : i % 3 === 1 ? 'daisy' : 'wildflower',
       color: i%4===0?'#c97888':i%4===1?'#b8d070':i%4===2?'#e8c840':'#d4a070',
       scale: 0.75,

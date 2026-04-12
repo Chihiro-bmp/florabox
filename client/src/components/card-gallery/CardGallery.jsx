@@ -4,10 +4,10 @@ import { useTransition } from '../../context/TransitionContext';
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const GOLD        = 'rgba(201,168,76,0.88)';  // gold — nav button hover
 const GOLD_BORDER = 'rgba(201,168,76,0.65)';  // gold — selected card glow ring
-const GOLD_GLOW   = 'rgba(201,168,76,0.10)';  // gold — selected card ambient glow
+const GOLD_GLOW   = 'rgba(201,168,76,0.14)';  // gold — selected card ambient glow
 const ROSE        = 'rgba(196,149,106,0.75)';  // rose — CTA text
 const ROSE_FULL   = 'rgba(196,149,106,1)';     // rose — CTA hover text
-const ROSE_BORDER = 'rgba(196,149,106,0.65)';  // rose — CTA border
+const ROSE_BORDER = 'rgba(196,149,106,0.55)';  // rose — CTA border
 // UI chrome: warm parchment — "testament of time" aged cream, not gold
 const CHROME      = 'rgba(245,237,224,0.52)';  // eyebrow label, counter
 const CHROME_RULE = 'rgba(245,237,224,0.20)';  // hairline rule
@@ -69,26 +69,43 @@ const THUMB_W  = 39;
 const THUMB_H  = 52; // 3:4 ratio
 const THUMB_SCALE = THUMB_W / NATIVE_W;
 
-function GalleryCard({ card, isSelected, onClick, onHoverChange, cardW, cardH, cardScale }) {
+function GalleryCard({ card, isSelected, onClick, onHoverChange, cardScale, enterDelay }) {
   const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+
+  const scaleVal = pressed ? 0.975 : hovered && !isSelected ? 1.018 : 1;
 
   return (
     <div
       data-card="true"
+      aria-label={`${card.name}, ${card.occasion} card`}
+      role="button"
+      tabIndex={0}
       style={{
         position: 'relative',
         flexShrink: 0,
         cursor: 'pointer',
         overflow: 'hidden',
         borderRadius: '2px',
+        // Stagger entrance from below
+        animation: `cardEnter 500ms cubic-bezier(0.16, 1, 0.3, 1) ${enterDelay}ms both`,
+        // Lift + glow on selected; subtle lift on hover
         boxShadow: isSelected
-          ? `0 0 0 1px ${GOLD_BORDER}, 0 0 28px 8px ${GOLD_GLOW}`
-          : '0 0 0 1px transparent',
-        transition: 'box-shadow 300ms ease',
+          ? `0 0 0 1px ${GOLD_BORDER}, 0 0 40px 12px ${GOLD_GLOW}, 0 0 80px 20px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.6)`
+          : hovered
+            ? '0 0 0 1px rgba(245,237,224,0.12), 0 16px 40px rgba(0,0,0,0.55)'
+            : '0 0 0 1px transparent, 0 8px 20px rgba(0,0,0,0.35)',
+        transform: `scale(${scaleVal})`,
+        transition: 'box-shadow 320ms ease, transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)',
       }}
       onMouseEnter={() => { setHovered(true);  onHoverChange?.(true);  }}
-      onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
+      onMouseLeave={() => { setHovered(false); setPressed(false); onHoverChange?.(false); }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onTouchStart={() => setPressed(true)}
+      onTouchEnd={() => setPressed(false)}
       onClick={onClick}
+      onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClick?.()}
     >
       {/* Live card component scaled to fit */}
       <div style={{
@@ -109,7 +126,7 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange, cardW, cardH, c
         background: 'linear-gradient(to bottom, transparent, rgba(5,3,1,0.88))',
         borderRadius: '0 0 2px 2px',
         opacity: (hovered || isSelected) ? 1 : 0,
-        transition: 'opacity 380ms ease',
+        transition: 'opacity 300ms ease',
         pointerEvents: 'none',
       }}>
         <p style={{
@@ -589,9 +606,8 @@ export default function CardGallery({ cards }) {
               if (h) hoveredIdxRef.current = i;
               else if (hoveredIdxRef.current === i) hoveredIdxRef.current = null;
             }}
-            cardW={cardDims.w}
-            cardH={cardDims.h}
             cardScale={cardDims.scale}
+            enterDelay={i * 45}
           />
         ))}
       </div>
@@ -604,8 +620,46 @@ export default function CardGallery({ cards }) {
         expandedScale={expandedScale}
       />
 
+      {/* ── Return to home — top left (visible when gallery in view, no card selected) */}
+      <button
+        aria-label="Back to home"
+        onClick={() => transitionTo('/')}
+        style={{
+          position: 'fixed',
+          top: '1.55rem',
+          left: '2rem',
+          zIndex: 20,
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '0.55rem 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.55rem',
+          fontFamily: "'Jost', sans-serif",
+          fontSize: '0.58rem',
+          fontWeight: 300,
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          color: 'rgba(245,237,224,0.44)',
+          opacity: (inView && !navVisible) ? 1 : 0,
+          transform: (inView && !navVisible) ? 'translateX(0)' : 'translateX(-10px)',
+          transition: 'opacity 400ms ease, transform 500ms cubic-bezier(0.34, 1.56, 0.64, 1), color 260ms ease',
+          pointerEvents: (inView && !navVisible) ? 'auto' : 'none',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'rgba(245,237,224,0.9)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(245,237,224,0.44)' }}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M7 1.5L2.5 5L7 8.5M2.5 5H9" stroke="currentColor" strokeWidth="1"
+            strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        home
+      </button>
+
       {/* ── Return to carousel — top left ─────────────────────────────────── */}
       <button
+        aria-label="Back to carousel"
         onClick={() => setSelectedIdx(null)}
         style={{
           position: 'fixed',
@@ -642,6 +696,7 @@ export default function CardGallery({ cards }) {
 
       {/* ── Left + navigation ─────────────────────────────────────────────── */}
       <button
+        aria-label="Previous card"
         onClick={() => { navigateTo(-1); setLeftRot(r => r + 90); }}
         style={{
           position: 'fixed',
@@ -673,6 +728,7 @@ export default function CardGallery({ cards }) {
 
       {/* ── Right + navigation ────────────────────────────────────────────── */}
       <button
+        aria-label="Next card"
         onClick={() => { navigateTo(1); setRightRot(r => r + 90); }}
         style={{
           position: 'fixed',
@@ -720,23 +776,28 @@ export default function CardGallery({ cards }) {
           letterSpacing: '0.24em',
           color: CHROME,
         }}>
-          {selectedIdx !== null ? `${selectedIdx + 1} — ${cards.length}` : ''}
+          {selectedIdx !== null
+            ? `${String(selectedIdx + 1).padStart(2, '0')} / ${String(cards.length).padStart(2, '0')}`
+            : ''
+          }
         </p>
       </div>
 
       {/* ── "Use this card" CTA — bottom left ─────────────────────────────── */}
       <button
+        aria-label={`Use ${cards[selectedIdx]?.name ?? 'this'} card`}
         onClick={() => transitionTo(`/card/new?preset=${cards[selectedIdx]?.id}`)}
         style={{
           position: 'fixed',
-          bottom: '1.7rem',
+          bottom: '1.55rem',
           left: '2rem',
           zIndex: 20,
           background: 'none',
           border: `0.5px solid ${ROSE_BORDER}`,
           borderRadius: '2px',
           cursor: 'pointer',
-          padding: '0.55rem 1.1rem',
+          padding: '0 1.3rem',
+          minHeight: '44px',
           fontFamily: "'Jost', sans-serif",
           fontSize: '0.6rem',
           fontWeight: 400,
@@ -745,11 +806,11 @@ export default function CardGallery({ cards }) {
           color: ROSE,
           opacity: navVisible ? 1 : 0,
           transform: navVisible ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 480ms ease, transform 550ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 280ms ease',
+          transition: 'opacity 480ms ease, transform 550ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 280ms ease, color 220ms ease, border-color 220ms ease',
           pointerEvents: navVisible ? 'auto' : 'none',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          gap: '0.55rem',
           whiteSpace: 'nowrap',
         }}
         onMouseEnter={e => {
@@ -814,6 +875,16 @@ export default function CardGallery({ cards }) {
           </div>
         ))}
       </div>
+
+      <style>{`
+        @keyframes cardEnter {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-card="true"] { animation: none !important; transition: box-shadow 300ms ease !important; }
+        }
+      `}</style>
 
       {/* ── Drag hint — fades on first interaction ────────────────────────── */}
       <div style={{

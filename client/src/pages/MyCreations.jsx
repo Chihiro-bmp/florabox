@@ -21,6 +21,15 @@ const THUMB_W    = 39;
 const THUMB_H    = 52;
 const THUMB_SCALE = THUMB_W / NATIVE_W;
 
+// Design tokens — match CardGallery
+const GOLD        = 'rgba(201,168,76,0.88)';
+const GOLD_BORDER = 'rgba(201,168,76,0.65)';
+const GOLD_GLOW   = 'rgba(201,168,76,0.14)';
+const ROSE        = 'rgba(196,149,106,0.75)';
+const ROSE_FULL   = 'rgba(196,149,106,1)';
+const ROSE_BORDER = 'rgba(196,149,106,0.55)';
+const CHROME      = 'rgba(245,237,224,0.52)';
+
 // Placeholder card face — rendered for cards that don't have a Component yet
 function PlaceholderCard({ card }) {
   return (
@@ -66,9 +75,26 @@ function PlaceholderCard({ card }) {
 }
 
 // ---------------------------------------------------------------------------
-// Film-grain overlay using inline SVG noise
+// Texture overlays
 // ---------------------------------------------------------------------------
 const GRAIN_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`
+const WASHI_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23w)' opacity='1'/%3E%3C/svg%3E")`
+
+function WashiOverlay() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 6,
+        pointerEvents: 'none',
+        backgroundImage: WASHI_SVG,
+        backgroundSize: '300px 300px',
+        opacity: 0.045,
+        mixBlendMode: 'overlay',
+      }}
+    />
+  )
+}
 
 function GrainOverlay() {
   return (
@@ -128,7 +154,7 @@ function ExpandedView({ card, visible, expandedScale }) {
             height: `${h}px`,
             overflow: 'hidden',
             borderRadius: '3px',
-            boxShadow: '0 40px 120px rgba(0,0,0,0.85)',
+            boxShadow: `0 0 0 1px ${GOLD_BORDER}, 0 0 40px 12px ${GOLD_GLOW}, 0 40px 120px rgba(0,0,0,0.85)`,
           }}>
             <div style={{
               width: NATIVE_W,
@@ -148,7 +174,7 @@ function ExpandedView({ card, visible, expandedScale }) {
               fontStyle: 'italic',
               fontSize: 'clamp(1rem, 2.6vw, 1.4rem)',
               fontWeight: 300,
-              color: 'rgba(245,237,224,0.72)',
+              color: 'rgba(201,168,76,0.82)',
               letterSpacing: '0.06em',
             }}>
               {card.label}
@@ -184,22 +210,38 @@ function PlusIcon() {
 // ---------------------------------------------------------------------------
 // Individual card — scaled PlaceholderCard inside the track
 // ---------------------------------------------------------------------------
-function GalleryCard({ card, isSelected, onClick, onHoverChange, cardW, cardH, cardScale }) {
+function GalleryCard({ card, isSelected, onClick, onHoverChange, cardScale, enterDelay }) {
   const [hovered, setHovered] = useState(false)
+  const [pressed, setPressed] = useState(false)
+
+  const scaleVal = pressed ? 0.975 : hovered && !isSelected ? 1.018 : 1
 
   return (
     <div
       data-card="true"
+      aria-label={`${card.label}, for ${card.to}`}
+      role="button"
+      tabIndex={0}
       style={{
         position: 'relative', flexShrink: 0, cursor: 'pointer',
         overflow: 'hidden', borderRadius: '2px',
-        width: cardW, height: cardH,
-        outline: isSelected ? '1px solid rgba(255,255,255,0.32)' : '1px solid transparent',
-        transition: 'outline-color 300ms ease',
+        animation: `cardEnter 500ms cubic-bezier(0.16, 1, 0.3, 1) ${enterDelay}ms both`,
+        boxShadow: isSelected
+          ? `0 0 0 1px ${GOLD_BORDER}, 0 0 40px 12px ${GOLD_GLOW}, 0 0 80px 20px rgba(201,168,76,0.05), 0 24px 60px rgba(0,0,0,0.6)`
+          : hovered
+            ? '0 0 0 1px rgba(245,237,224,0.12), 0 16px 40px rgba(0,0,0,0.55)'
+            : '0 0 0 1px transparent, 0 8px 20px rgba(0,0,0,0.35)',
+        transform: `scale(${scaleVal})`,
+        transition: 'box-shadow 320ms ease, transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)',
       }}
       onMouseEnter={() => { setHovered(true);  onHoverChange?.(true);  }}
-      onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
+      onMouseLeave={() => { setHovered(false); setPressed(false); onHoverChange?.(false); }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onTouchStart={() => setPressed(true)}
+      onTouchEnd={() => setPressed(false)}
       onClick={onClick}
+      onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClick?.()}
     >
       {/* Live card component scaled to fit */}
       <div style={{
@@ -217,10 +259,10 @@ function GalleryCard({ card, isSelected, onClick, onHoverChange, cardW, cardH, c
         position: 'absolute',
         bottom: 0, left: 0, right: 0,
         padding: '3.5vmin 2.2vmin 2.2vmin',
-        background: 'linear-gradient(to bottom, transparent, rgba(5,3,1,0.86))',
+        background: 'linear-gradient(to bottom, transparent, rgba(5,3,1,0.88))',
         borderRadius: '0 0 2px 2px',
         opacity: (hovered || isSelected) ? 1 : 0,
-        transition: 'opacity 380ms ease',
+        transition: 'opacity 300ms ease',
         pointerEvents: 'none',
       }}>
         <p style={{
@@ -537,6 +579,7 @@ export default function MyCreations() {
       userSelect: 'none',
     }}>
 
+      <WashiOverlay />
       <GrainOverlay />
 
       {/* Radial vignette */}
@@ -555,12 +598,14 @@ export default function MyCreations() {
         gap: '1.4rem',
       }}>
         <button
+          aria-label="Back to home"
           onClick={() => transitionTo('/')}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'rgba(255,255,255,0.35)',
-            padding: '0.4rem',
-            display: 'flex', alignItems: 'center',
+            padding: '0.55rem',
+            minWidth: '44px', minHeight: '44px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'color 280ms ease',
           }}
           onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.75)'}
@@ -572,16 +617,28 @@ export default function MyCreations() {
           </svg>
         </button>
 
-        <p style={{
-          fontFamily: "'Cormorant Garamond', serif",
-          fontSize: '0.7rem',
-          fontWeight: 300,
-          letterSpacing: '0.3em',
-          textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.45)',
-        }}>
-          My Creations
-        </p>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.8rem' }}>
+          <p style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontStyle: 'italic',
+            fontSize: 'clamp(0.85rem, 1.4vw, 1rem)',
+            fontWeight: 300,
+            letterSpacing: '0.06em',
+            color: 'rgba(201,168,76,0.72)',
+          }}>
+            My Collection
+          </p>
+          <span style={{
+            fontFamily: "'Jost', sans-serif",
+            fontSize: '0.52rem',
+            fontWeight: 300,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'rgba(245,237,224,0.22)',
+          }}>
+            {CARDS.length} cards
+          </span>
+        </div>
       </div>
 
       {/* Image track — outer div handles vertical centering (React), inner div handles horizontal scroll (JS) */}
@@ -604,9 +661,8 @@ export default function MyCreations() {
               if (h) hoveredIdxRef.current = i
               else if (hoveredIdxRef.current === i) hoveredIdxRef.current = null
             }}
-            cardW={cardDims.w}
-            cardH={cardDims.h}
             cardScale={cardDims.scale}
+            enterDelay={i * 45}
           />
         ))}
       </div>
@@ -621,6 +677,7 @@ export default function MyCreations() {
 
       {/* ── Close expanded view — top right ───────────────────────────────── */}
       <button
+        aria-label="Close expanded view"
         onClick={() => setSelectedIdx(null)}
         style={{
           position: 'fixed',
@@ -657,6 +714,7 @@ export default function MyCreations() {
 
       {/* ── Left + navigation ─────────────────────────────────────────────── */}
       <button
+        aria-label="Previous card"
         onClick={() => { navigateTo(-1); setLeftRot(r => r + 90) }}
         style={{
           position: 'fixed',
@@ -673,11 +731,11 @@ export default function MyCreations() {
           justifyContent: 'center',
           color: 'white',
           opacity: navVisible ? (atStart ? 0.14 : 0.65) : 0,
-          transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1), color 220ms ease',
           pointerEvents: navVisible ? 'auto' : 'none',
         }}
-        onMouseEnter={e => { if (!atStart) e.currentTarget.style.opacity = '1' }}
-        onMouseLeave={e => { if (!atStart) e.currentTarget.style.opacity = '0.65' }}
+        onMouseEnter={e => { if (!atStart) { e.currentTarget.style.color = GOLD; e.currentTarget.style.opacity = '1' } }}
+        onMouseLeave={e => { if (!atStart) { e.currentTarget.style.color = 'white'; e.currentTarget.style.opacity = '0.65' } }}
       >
         <span style={{
           display: 'inline-flex',
@@ -690,6 +748,7 @@ export default function MyCreations() {
 
       {/* ── Right + navigation ────────────────────────────────────────────── */}
       <button
+        aria-label="Next card"
         onClick={() => { navigateTo(1); setRightRot(r => r + 90) }}
         style={{
           position: 'fixed',
@@ -706,11 +765,11 @@ export default function MyCreations() {
           justifyContent: 'center',
           color: 'white',
           opacity: navVisible ? (atEnd ? 0.14 : 0.65) : 0,
-          transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          transition: 'opacity 420ms ease, transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1), color 220ms ease',
           pointerEvents: navVisible ? 'auto' : 'none',
         }}
-        onMouseEnter={e => { if (!atEnd) e.currentTarget.style.opacity = '1' }}
-        onMouseLeave={e => { if (!atEnd) e.currentTarget.style.opacity = '0.65' }}
+        onMouseEnter={e => { if (!atEnd) { e.currentTarget.style.color = GOLD; e.currentTarget.style.opacity = '1' } }}
+        onMouseLeave={e => { if (!atEnd) { e.currentTarget.style.color = 'white'; e.currentTarget.style.opacity = '0.65' } }}
       >
         <span style={{
           display: 'inline-flex',
@@ -738,10 +797,104 @@ export default function MyCreations() {
           fontSize: '0.56rem',
           fontWeight: 300,
           letterSpacing: '0.24em',
-          color: 'white',
+          color: CHROME,
         }}>
-          {selectedIdx !== null ? `${selectedIdx + 1} — ${CARDS.length}` : ''}
+          {selectedIdx !== null
+            ? `${String(selectedIdx + 1).padStart(2, '0')} / ${String(CARDS.length).padStart(2, '0')}`
+            : ''
+          }
         </p>
+      </div>
+
+      {/* ── Action CTAs — bottom left (view + send again) ─────────────────── */}
+      <div style={{
+        position: 'fixed',
+        bottom: '1.55rem',
+        left: '2rem',
+        zIndex: 20,
+        display: 'flex',
+        gap: '0.6rem',
+        alignItems: 'center',
+        opacity: navVisible ? 1 : 0,
+        transform: navVisible ? 'translateY(0)' : 'translateY(8px)',
+        transition: 'opacity 480ms ease, transform 550ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        pointerEvents: navVisible ? 'auto' : 'none',
+      }}>
+        {/* View card */}
+        <button
+          aria-label="View this card"
+          onClick={() => transitionTo(`/card/view/${CARDS[selectedIdx]?.id}`)}
+          style={{
+            background: 'none',
+            border: `0.5px solid ${ROSE_BORDER}`,
+            borderRadius: '2px',
+            cursor: 'pointer',
+            padding: '0 1.3rem',
+            minHeight: '44px',
+            fontFamily: "'Jost', sans-serif",
+            fontSize: '0.6rem',
+            fontWeight: 400,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: ROSE,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            whiteSpace: 'nowrap',
+            transition: 'color 220ms ease, border-color 220ms ease, box-shadow 280ms ease',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = ROSE_FULL;
+            e.currentTarget.style.borderColor = ROSE_FULL;
+            e.currentTarget.style.boxShadow = '0 0 14px rgba(196,149,106,0.12)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = ROSE;
+            e.currentTarget.style.borderColor = ROSE_BORDER;
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          View card
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+            <path d="M1 8L8 1M8 1H2.5M8 1V6.5" stroke="currentColor" strokeWidth="1"
+              strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+
+        {/* Send again */}
+        <button
+          aria-label="Send this card again"
+          onClick={() => transitionTo(`/card/new?preset=${CARDS[selectedIdx]?.id}`)}
+          style={{
+            background: 'none',
+            border: '0.5px solid rgba(245,237,224,0.16)',
+            borderRadius: '2px',
+            cursor: 'pointer',
+            padding: '0 1.3rem',
+            minHeight: '44px',
+            fontFamily: "'Jost', sans-serif",
+            fontSize: '0.6rem',
+            fontWeight: 300,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: 'rgba(245,237,224,0.38)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            whiteSpace: 'nowrap',
+            transition: 'color 220ms ease, border-color 220ms ease',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = 'rgba(245,237,224,0.75)';
+            e.currentTarget.style.borderColor = 'rgba(245,237,224,0.32)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = 'rgba(245,237,224,0.38)';
+            e.currentTarget.style.borderColor = 'rgba(245,237,224,0.16)';
+          }}
+        >
+          Send again
+        </button>
       </div>
 
       {/* ── Thumbnail strip — bottom right ────────────────────────────────── */}
@@ -761,7 +914,11 @@ export default function MyCreations() {
         {CARDS.map((card, i) => (
           <div
             key={card.id}
+            role="button"
+            aria-label={`Select ${card.label}`}
+            tabIndex={navVisible ? 0 : -1}
             onClick={() => { setSelectedIdx(i); snapToCard(i) }}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (setSelectedIdx(i), snapToCard(i))}
             style={{
               width: `${THUMB_W}px`,
               height: `${THUMB_H}px`,
@@ -771,7 +928,7 @@ export default function MyCreations() {
               cursor: 'pointer',
               opacity: selectedIdx === i ? 1 : 0.32,
               outline: selectedIdx === i
-                ? '1px solid rgba(255,255,255,0.5)'
+                ? `1px solid ${GOLD_BORDER}`
                 : '1px solid transparent',
               transition: 'opacity 280ms ease, outline-color 280ms ease',
             }}
@@ -788,6 +945,16 @@ export default function MyCreations() {
           </div>
         ))}
       </div>
+
+      <style>{`
+        @keyframes cardEnter {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-card="true"] { animation: none !important; transition: box-shadow 300ms ease !important; }
+        }
+      `}</style>
 
       {/* ── Drag hint — fades on first interaction ────────────────────────── */}
       <div style={{
