@@ -9,6 +9,12 @@
       "port": 5174
     },
     {
+      "name": "client (Vite) - angry-bouman",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["run-angry-bouman-client.js"],
+      "port": 5175
+    },
+    {
       "name": "client (Vite) - main",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
