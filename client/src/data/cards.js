@@ -1,6 +1,7 @@
 import MarbledRose from '../components/cards/birthday/MarbledRose';
 import GoldenHour from '../components/cards/birthday/GoldenHour';
 import MineralMoon from '../components/cards/birthday/MineralMoon';
+import WisteriaCard from '../components/cards/love/WisteriaCard';
 
 export const CARDS = [
   {
@@ -35,5 +36,16 @@ export const CARDS = [
     nameColor: 'rgba(190,210,252,0.85)',
     nameFont: '"Share Tech Mono", monospace',
     nameItalic: false,
+  },
+  {
+    id: 'love-wisteria',
+    name: 'Wisteria',
+    occasion: 'Love',
+    theme: 'botanical',
+    Component: WisteriaCard,
+    // Lavender-plum — echoes the hanging cluster colour
+    nameColor: 'rgba(130,90,140,0.82)',
+    nameFont: '"Cormorant Garamond", Georgia, serif',
+    nameItalic: true,
   },
 ];
