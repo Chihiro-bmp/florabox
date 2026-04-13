@@ -5,7 +5,15 @@
       "Bash(grep -o \"\\\\\\\\.framer-[a-z0-9]*{[^}]*blur\\(84px\\)[^}]*}\")",
       "Bash(grep -o \"\\\\\\\\.framer-[a-z0-9]*{[^}]*nqno7GEA1296c1AgSIRh3jDuI[^}]*}\")",
       "Bash(grep -o \"\\\\\\\\.framer-[a-z0-9]*{background-image:url\\(https://framerusercontent.com/images/nqno7GEA1296c1AgSIRh3jDuI[^}]*}\")",
-      "Bash(python \"c:/Users/wasik/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"East Asian ink art premium gallery warm botanical gifting\" --design-system -p \"Florabox\" -f markdown)"
+      "Bash(python \"c:/Users/wasik/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"East Asian ink art premium gallery warm botanical gifting\" --design-system -p \"Florabox\" -f markdown)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5175)",
+      "Bash(npx vite:*)",
+      "Bash(npm install:*)",
+      "Bash(gh pr create --title 'feat: Wisteria love card \\(Love Card #1\\)' --body ':*)",
+      "Bash(where gh:*)",
+      "Bash(winget list:*)"
     ]
   }
 }
