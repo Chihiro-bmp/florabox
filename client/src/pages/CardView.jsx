@@ -8,6 +8,7 @@ import { MUSIC_TRACKS } from '../data/music';
 import ScaledCard from '../components/card-compose/ScaledCard';
 import EnvelopeReveal from '../components/card-viewer/EnvelopeReveal';
 import RevealAnimation from '../components/card-viewer/RevealAnimation';
+import CatMark from '../components/mascot/CatMark';
 
 const INK        = '#1e1008';
 const WARM_BROWN = '#3d2510';
@@ -58,6 +59,7 @@ function SendYourOwn({ delay = 0 }) {
       onMouseEnter={e => { e.currentTarget.style.color = WARM_BROWN; }}
       onMouseLeave={e => { e.currentTarget.style.color = MUTED; }}
     >
+      <CatMark height={22} title="" style={{ marginTop: '-4px' }} />
       Send your own Florabox
       <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden="true">
         <path d="M1 8L8 1M8 1H2.5M8 1V6.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
