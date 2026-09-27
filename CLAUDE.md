@@ -44,6 +44,7 @@
 - No emojis anywhere — custom SVG icons only, fine linework style
 - Cards/buttons: squared corners (`borderRadius: 4px`), botanical hairline details
 - Petal animation on home page: canvas RAF loop, Ghost of Tsushima style
+- **Mascot / logo:** an original black cat (not Jiji — keep it our own) with pale jade eyes (`#b9d3a8`) and a blush five-petal blossom collar. Seated pose = logo mark; side pose for walking/leaping. Shapes live in `components/mascot/catShapes.js` — change them there so the logo, favicon and animated cat stay in sync.
 
 ---
 
@@ -60,13 +61,22 @@
 ## What's Already Built
 
 - ✅ Project scaffolded — React + Vite + Tailwind + Express + Neon schema
-- ✅ Home page (`/`) — parchment + ink blossom SVG background, Ghost of Tsushima petal canvas animation, three action cards with SVG icons
+- ✅ Home page (`/`) — parchment + ink blossom SVG background, Ghost of Tsushima petal canvas animation, three action cards with SVG icons, and the mascot cat (see below)
 - ✅ Card gallery (`/gallery`) — hero + dark gallery room (see below)
 - ✅ Preset cards — Birthday: Marbled Rose, Golden Hour, Mineral Moon; Love: Wisteria
 - ✅ Preset compose page (`/card/new?preset=<id>`) — Path A: live preview, To/From/message, music picker, Send → shareable link
 - ✅ Recipient view (`/view/:id`) — envelope reveal, themed reveal animation (botanical + cosmic), card, "Send your own Florabox"
 - ✅ Card save/retrieve API (`POST /api/cards`, `GET /api/cards/:id`) + schema in `server/schema.sql`
 - Placeholder only: craftsman builder (`/card/new` without a preset), bouquet builder (`/bouquet/new`), My Creations (`/u/:username`, layout built on dummy data)
+
+---
+
+## Mascot cat — as built (`components/mascot/`)
+
+- `BranchCat.jsx` — lives on the home page's right-hand tree (inside its sway group, so it moves with the branch). RAF state machine: sits (blinks, tail sway + flicks, pupils follow the pointer) → strolls along `BRANCH_PATHS[12]` → or leaps to a perch on `BRANCH_PATHS[13]`. Click → little hop. Perches are `CAT_PERCHES` in `Home.jsx`. `prefers-reduced-motion`: stays seated.
+- `PerchedCat.jsx` — used instead when the right tree is off-screen (width < 768px or aspect < 1.2): sits on top of the action cards, CSS blink/tail, tap → hop.
+- `CatMark.jsx` — static logo (used beside "Send your own Florabox"); `public/favicon.svg` is generated from the same shapes.
+- `CatParts.jsx` — `SeatedCat` / `SideCat` SVG parts with refs for animation.
 
 ---
 
@@ -242,6 +252,7 @@ client/src/
       MusicPicker.jsx         -- curated playlist
       SendSuccess.jsx         -- shareable link + copy
       tokens.js               -- dark-room colour tokens
+    mascot/                   -- black cat: BranchCat, PerchedCat, CatMark, CatParts, catShapes
     card-viewer/              -- recipient
       EnvelopeReveal.jsx      -- envelope SVG animation
       RevealAnimation.jsx     -- themed canvas reveal (theme registry)

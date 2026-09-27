@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTransition } from '../context/TransitionContext'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
+import BranchCat from '../components/mascot/BranchCat'
+import PerchedCat from '../components/mascot/PerchedCat'
 
 const isTouch = () => window.matchMedia('(hover: none)').matches
+const isWideScene = () => window.innerWidth >= 768 && window.innerWidth / window.innerHeight >= 1.2
 
 // ─── Particle helpers ─────────────────────────────────────────────────────────
 const PETAL_COLORS = ['#c9788a','#d4909e','#e8b4bc','#c47a6e','#d4a090','#b8848c']
@@ -209,6 +212,13 @@ const BRANCH_PATHS = [
   "M 1300,200 C 1285,228 1268,255 1248,278",
 ]
 const BRANCH_WIDTHS = [8,5.5,3.5,3,2.5,2,1.8,2.2,1.4,1.4,1.2,1.2,5,3.2,2,1.5,1.8]
+
+// Where the mascot lives: the long right-hand branch (it strolls along it) and a
+// perch on the offshoot below (it leaps there to sit). Both sway with the right tree.
+const CAT_PERCHES = [
+  { d: BRANCH_PATHS[12], width: BRANCH_WIDTHS[12], from: 0.2,  to: 0.93, walk: true },
+  { d: BRANCH_PATHS[13], width: BRANCH_WIDTHS[13], from: 0.16, to: 0.4,  walk: false },
+]
 
 // ─── Ground meadow data — 3 depth layers ─────────────────────────────────────
 // Layer 1: Far background — short, pale, low opacity (baseY 870)
@@ -618,7 +628,7 @@ function GrassCanvas({ drawProgressRef, swayTRef }) {
 }
 
 // ─── SVG background ───────────────────────────────────────────────────────────
-function BlossomBackground({ drawProgress }) {
+function BlossomBackground({ drawProgress, catActive }) {
   // Branch sway uses CSS animations — no JS needed, smooth 60fps with no re-renders
 
   return (
@@ -754,6 +764,11 @@ function BlossomBackground({ drawProgress }) {
       ))}
       </g>
 
+      {/* Mascot — shares the right tree's sway so it stays on its branch */}
+      <g style={{ transformOrigin:'1440px 120px', animation:'branchSwayRight 9s ease-in-out infinite' }}>
+        <BranchCat perches={CAT_PERCHES} active={catActive}/>
+      </g>
+
       {/* Fallen petals */}
       {[[180,858,22],[350,868,14],[520,862,18],[680,856,12],[840,864,16],[1000,858,20],[1160,866,13],[1320,855,17]].map(([x,y,s],i) => (
         <ellipse key={`fp${i}`} cx={x} cy={y} rx={s*0.4} ry={s*0.22}
@@ -803,6 +818,7 @@ export default function Home() {
   const { transitionTo } = useTransition()
   const [touch] = useState(() => isTouch())
   const [drawProgress, setDrawProgress] = useState(0)
+  const [wide, setWide] = useState(() => isWideScene())
   const swayTRef = useRef(0)
   const drawProgressRef = useRef(0)
   const burstRef = useRef(null)
@@ -833,6 +849,13 @@ export default function Home() {
     const tick = () => { swayTRef.current += 0.016; raf = requestAnimationFrame(tick) }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // The branch cat needs the right tree on screen; otherwise it perches on the cards
+  useEffect(() => {
+    const onResize = () => setWide(isWideScene())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   // Mouse parallax — desktop only
@@ -874,7 +897,7 @@ export default function Home() {
         y: touch ? 0 : springY,
         zIndex:1,
       }}>
-        <BlossomBackground drawProgress={drawProgress}/>
+        <BlossomBackground drawProgress={drawProgress} catActive={wide && drawProgress >= 1}/>
       </motion.div>
 
       {/* Particle canvas — petals + grass shards */}
@@ -939,7 +962,7 @@ export default function Home() {
 
         {/* Action cards */}
         <div
-          style={{ display:'flex', flexDirection:'column', gap:'0.65rem', width:'100%', maxWidth:'860px',
+          style={{ display:'flex', flexDirection:'column', gap:'0.65rem', width:'100%', maxWidth:'860px', position:'relative',
             pointerEvents: uiOpacity > 0.5 ? 'auto' : 'none' }}
           ref={el => {
             if (!el) return
@@ -953,6 +976,10 @@ export default function Home() {
             mq.addEventListener('change', apply)
           }}
         >
+          {/* Small screens: the mascot sits on top of the cards instead of the branch */}
+          {!wide && uiOpacity >= 1 && (
+            <PerchedCat height={50} style={{ position:'absolute', top:-48, right:14, zIndex:2 }}/>
+          )}
           {actions.map((a, i) => (
             <motion.button key={a.type}
               whileHover={touch ? {} : { y:-5, scale:1.022 }}
