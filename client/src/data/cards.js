@@ -6,6 +6,8 @@ import WisteriaCard from '../components/cards/love/WisteriaCard';
 export const CARDS = [
   {
     id: 'birthday-marbled-rose',
+    // Must match the wrap width / line count the card component uses to draw the message
+    messageLayout: { chars: 28, lines: 5 },
     name: 'Marbled Rose',
     occasion: 'Birthday',
     theme: 'botanical',
@@ -17,6 +19,8 @@ export const CARDS = [
   },
   {
     id: 'birthday-golden-hour',
+    // Must match the wrap width / line count the card component uses to draw the message
+    messageLayout: { chars: 28, lines: 4 },
     name: 'Golden Hour',
     occasion: 'Birthday',
     theme: 'botanical',
@@ -28,6 +32,8 @@ export const CARDS = [
   },
   {
     id: 'birthday-mineral-moon',
+    // Must match the wrap width / line count the card component uses to draw the message
+    messageLayout: { chars: 24, lines: 5 },
     name: 'Mineral Moon',
     occasion: 'Birthday',
     theme: 'cosmic',
@@ -39,6 +45,8 @@ export const CARDS = [
   },
   {
     id: 'love-wisteria',
+    // Must match the wrap width / line count the card component uses to draw the message
+    messageLayout: { chars: 32, lines: 5 },
     name: 'Wisteria',
     occasion: 'Love',
     theme: 'botanical',
@@ -49,3 +57,5 @@ export const CARDS = [
     nameItalic: true,
   },
 ];
+
+export const getCardById = (id) => CARDS.find(c => c.id === id) ?? null;
