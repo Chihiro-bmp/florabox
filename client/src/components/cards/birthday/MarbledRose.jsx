@@ -80,11 +80,6 @@ export default function MarbledRose({ toName = '', fromName = '', message = '' }
       {/* MAIN STEM */}
       <path d="M282,400 C278,378 270,352 260,326 C250,300 238,276 226,254 C216,236 204,218 194,200 C184,182 176,164 170,148 C166,138 164,128 164,118"
             fill="none" stroke={`url(#${uid}stemLight)`} strokeWidth="1.8" strokeLinecap="round"/>
-      <path d="M256,328 C260,321 263,317" fill="none" stroke="#5a2a0a" strokeWidth=".75" strokeLinecap="round"/>
-      <path d="M240,284 C236,276 233,272" fill="none" stroke="#5a2a0a" strokeWidth=".7" strokeLinecap="round"/>
-      <path d="M228,258 C232,251 234,247" fill="none" stroke="#5a2a0a" strokeWidth=".68" strokeLinecap="round"/>
-      <path d="M210,218 C214,211 216,207" fill="none" stroke="#5a2a0a" strokeWidth=".65" strokeLinecap="round"/>
-      <path d="M248,308 C245,300 243,296" fill="none" stroke="#5a2a0a" strokeWidth=".65" strokeLinecap="round"/>
 
       {/* LEAF GROUP 1 */}
       <g transform="translate(10,33) rotate(-8 194 155)">
@@ -92,17 +87,17 @@ export default function MarbledRose({ toName = '', fromName = '', message = '' }
         <g filter={`url(#${uid}leafNoise)`}>
           <path d="M207,148 C215,137 220,121 216,111 C212,107 205,110 201,120 C198,132 198,143 207,148Z" fill={`url(#${uid}leafLight)`}/>
           <path d="M207,148 C215,137 220,121 216,111 C212,107 205,110 201,120 C198,132 198,143 207,148Z" fill="none" stroke="#2e1a08" strokeWidth=".7"/>
-          <path d="M212,136 C209,133 206,132" stroke="rgba(255,255,255,0.16)" strokeWidth=".36" fill="none" strokeLinecap="round"/>
-          <path d="M212,136 C215,133 218,131" stroke="rgba(255,255,255,0.13)" strokeWidth=".34" fill="none" strokeLinecap="round"/>
-          <path d="M214,122 C211,119 208,118" stroke="rgba(255,255,255,0.14)" strokeWidth=".33" fill="none" strokeLinecap="round"/>
-          <path d="M214,122 C217,119 220,117" stroke="rgba(255,255,255,0.11)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
+          <path d="M212,136 Q209,133 206,132" stroke="rgba(255,255,255,0.16)" strokeWidth=".36" fill="none" strokeLinecap="round"/>
+          <path d="M212,136 Q215,133 218,131" stroke="rgba(255,255,255,0.13)" strokeWidth=".34" fill="none" strokeLinecap="round"/>
+          <path d="M214,122 Q211,119 208,118" stroke="rgba(255,255,255,0.14)" strokeWidth=".33" fill="none" strokeLinecap="round"/>
+          <path d="M214,122 Q217,119 220,117" stroke="rgba(255,255,255,0.11)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
           <path d="M207,148 C214,139 220,132 225,127 C222,121 215,122 211,130 C208,137 207,146 207,148Z" fill={`url(#${uid}leafLight)`} opacity="0.90"/>
           <path d="M207,148 C214,139 220,132 225,127 C222,121 215,122 211,130 C208,137 207,146 207,148Z" fill="none" stroke="#2e1a08" strokeWidth=".65"/>
           <path d="M207,148 C213,139 219,131 222,127" stroke="rgba(255,255,255,0.16)" strokeWidth=".38" fill="none" strokeLinecap="round"/>
-          <path d="M213,139 C216,137 219,135" stroke="rgba(255,255,255,0.12)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
+          <path d="M213,139 Q216,137 219,135" stroke="rgba(255,255,255,0.12)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
           <path d="M207,148 C216,150 225,149 229,143 C226,135 216,134 212,141 C209,146 208,148 207,148Z" fill={`url(#${uid}leafLight)`} opacity="0.87"/>
           <path d="M207,148 C216,150 225,149 229,143 C226,135 216,134 212,141 C209,146 208,148 207,148Z" fill="none" stroke="#2e1a08" strokeWidth=".65"/>
-          <path d="M207,148 C215,148 223,144" stroke="rgba(255,255,255,0.14)" strokeWidth=".37" fill="none" strokeLinecap="round"/>
+          <path d="M207,148 Q215,148 223,144" stroke="rgba(255,255,255,0.14)" strokeWidth=".37" fill="none" strokeLinecap="round"/>
         </g>
         <ellipse cx="207" cy="160" rx="20" ry="5" fill="rgba(0,0,0,0.07)"/>
       </g>
@@ -114,21 +109,21 @@ export default function MarbledRose({ toName = '', fromName = '', message = '' }
           <path d="M188,225 C176,218 163,216 155,220 C153,228 161,237 175,238 C183,238 188,232 188,225Z" fill={`url(#${uid}leafLight2)`}/>
           <path d="M188,225 C176,218 163,216 155,220 C153,228 161,237 175,238 C183,238 188,232 188,225Z" fill="none" stroke="#2e1a08" strokeWidth=".75"/>
           <path d="M188,225 C174,220 162,218 155,220" stroke="rgba(255,255,255,0.18)" strokeWidth=".45" fill="none" strokeLinecap="round"/>
-          <path d="M174,220 C172,217 171,215" stroke="rgba(255,255,255,0.14)" strokeWidth=".33" fill="none" strokeLinecap="round"/>
-          <path d="M174,220 C172,223 171,225" stroke="rgba(255,255,255,0.12)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
-          <path d="M163,218 C162,215 161,213" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
+          <path d="M174,220 Q172,217 171,215" stroke="rgba(255,255,255,0.14)" strokeWidth=".33" fill="none" strokeLinecap="round"/>
+          <path d="M174,220 Q172,223 171,225" stroke="rgba(255,255,255,0.12)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
+          <path d="M163,218 Q162,215 161,213" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
           <path d="M188,225 C183,213 177,205 169,202 C163,204 163,212 170,219 C178,225 187,225 188,225Z" fill={`url(#${uid}leafLight2)`} opacity="0.91"/>
           <path d="M188,225 C183,213 177,205 169,202 C163,204 163,212 170,219 C178,225 187,225 188,225Z" fill="none" stroke="#2e1a08" strokeWidth=".68"/>
           <path d="M188,225 C182,214 175,207 169,202" stroke="rgba(255,255,255,0.15)" strokeWidth=".38" fill="none" strokeLinecap="round"/>
-          <path d="M177,205 C174,207 172,209" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
+          <path d="M177,205 Q174,207 172,209" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
           <path d="M188,225 C183,236 177,243 169,243 C163,241 163,232 170,228 C178,226 187,226 188,225Z" fill={`url(#${uid}leafLight2)`} opacity="0.88"/>
           <path d="M188,225 C183,236 177,243 169,243 C163,241 163,232 170,228 C178,226 187,226 188,225Z" fill="none" stroke="#2e1a08" strokeWidth=".68"/>
           <path d="M155,220 C144,213 132,210 124,215 C121,223 130,232 144,232 C152,232 155,227 155,220Z" fill={`url(#${uid}leafMid)`} opacity="0.94"/>
           <path d="M155,220 C144,213 132,210 124,215 C121,223 130,232 144,232 C152,232 155,227 155,220Z" fill="none" stroke="#2e1a08" strokeWidth=".72"/>
           <path d="M155,220 C143,215 131,212 124,215" stroke="rgba(255,255,255,0.17)" strokeWidth=".43" fill="none" strokeLinecap="round"/>
-          <path d="M143,215 C141,212 140,210" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
-          <path d="M143,215 C141,218 140,220" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
-          <path d="M132,212 C131,210 130,208" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
+          <path d="M143,215 Q141,212 140,210" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
+          <path d="M143,215 Q141,218 140,220" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
+          <path d="M132,212 Q131,210 130,208" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
           <path d="M155,220 C151,210 145,204 139,203 C135,207 137,216 145,220 C151,223 155,222 155,220Z" fill={`url(#${uid}leafLight2)`} opacity="0.85"/>
           <path d="M155,220 C151,210 145,204 139,203 C135,207 137,216 145,220 C151,223 155,222 155,220Z" fill="none" stroke="#2e1a08" strokeWidth=".65"/>
         </g>
@@ -142,14 +137,14 @@ export default function MarbledRose({ toName = '', fromName = '', message = '' }
           <path d="M265,254 C270,241 274,227 271,219 C267,215 260,218 257,230 C254,241 257,251 265,254Z" fill={`url(#${uid}leafLight)`}/>
           <path d="M265,254 C270,241 274,227 271,219 C267,215 260,218 257,230 C254,241 257,251 265,254Z" fill="none" stroke="#2e1a08" strokeWidth=".72"/>
           <path d="M265,254 C269,240 272,226 271,219" stroke="rgba(255,255,255,0.2)" strokeWidth=".45" fill="none" strokeLinecap="round"/>
-          <path d="M269,241 C266,238 263,237" stroke="rgba(255,255,255,0.15)" strokeWidth=".34" fill="none" strokeLinecap="round"/>
-          <path d="M269,241 C272,238 275,236" stroke="rgba(255,255,255,0.13)" strokeWidth=".32" fill="none" strokeLinecap="round"/>
-          <path d="M272,227 C269,224 266,223" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
-          <path d="M272,227 C275,224 277,222" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
+          <path d="M269,241 Q266,238 263,237" stroke="rgba(255,255,255,0.15)" strokeWidth=".34" fill="none" strokeLinecap="round"/>
+          <path d="M269,241 Q272,238 275,236" stroke="rgba(255,255,255,0.13)" strokeWidth=".32" fill="none" strokeLinecap="round"/>
+          <path d="M272,227 Q269,224 266,223" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
+          <path d="M272,227 Q275,224 277,222" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
           <path d="M265,254 C272,246 278,237 281,231 C279,225 271,227 267,236 C264,243 264,252 265,254Z" fill={`url(#${uid}leafLight)`} opacity="0.90"/>
           <path d="M265,254 C272,246 278,237 281,231 C279,225 271,227 267,236 C264,243 264,252 265,254Z" fill="none" stroke="#2e1a08" strokeWidth=".65"/>
           <path d="M265,254 C271,246 276,237 279,231" stroke="rgba(255,255,255,0.15)" strokeWidth=".37" fill="none" strokeLinecap="round"/>
-          <path d="M272,246 C274,243 276,241" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
+          <path d="M272,246 Q274,243 276,241" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
           <path d="M265,254 C274,254 281,251 285,245 C282,237 273,237 269,244 C266,249 265,253 265,254Z" fill={`url(#${uid}leafLight)`} opacity="0.87"/>
           <path d="M265,254 C274,254 281,251 285,245 C282,237 273,237 269,244 C266,249 265,253 265,254Z" fill="none" stroke="#2e1a08" strokeWidth=".65"/>
         </g>
@@ -163,16 +158,16 @@ export default function MarbledRose({ toName = '', fromName = '', message = '' }
           <path d="M221,295 C210,287 198,284 190,288 C187,296 196,305 209,306 C217,306 221,301 221,295Z" fill={`url(#${uid}leafLight2)`}/>
           <path d="M221,295 C210,287 198,284 190,288 C187,296 196,305 209,306 C217,306 221,301 221,295Z" fill="none" stroke="#2e1a08" strokeWidth=".72"/>
           <path d="M221,295 C208,289 196,286 190,288" stroke="rgba(255,255,255,0.17)" strokeWidth=".42" fill="none" strokeLinecap="round"/>
-          <path d="M208,289 C206,286 204,285" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
-          <path d="M208,289 C206,292 205,294" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
+          <path d="M208,289 Q206,286 204,285" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
+          <path d="M208,289 Q206,292 205,294" stroke="rgba(255,255,255,0.11)" strokeWidth=".29" fill="none" strokeLinecap="round"/>
           <path d="M221,295 C216,283 210,274 202,272 C197,275 198,284 206,290 C213,294 220,295 221,295Z" fill={`url(#${uid}leafLight2)`} opacity="0.91"/>
           <path d="M221,295 C216,283 210,274 202,272 C197,275 198,284 206,290 C213,294 220,295 221,295Z" fill="none" stroke="#2e1a08" strokeWidth=".65"/>
-          <path d="M216,283 C213,280 211,279" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
+          <path d="M216,283 Q213,280 211,279" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
           <path d="M221,295 C216,306 210,314 202,315 C197,312 198,304 206,300 C213,297 220,296 221,295Z" fill={`url(#${uid}leafLight2)`} opacity="0.88"/>
           <path d="M221,295 C216,306 210,314 202,315 C197,312 198,304 206,300 C213,297 220,296 221,295Z" fill="none" stroke="#2e1a08" strokeWidth=".65"/>
           <path d="M190,288 C178,283 166,281 159,284" stroke="rgba(255,255,255,0.15)" strokeWidth=".38" fill="none" strokeLinecap="round"/>
-          <path d="M178,283 C176,280 174,279" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
-          <path d="M178,283 C176,286 175,288" stroke="rgba(255,255,255,0.10)" strokeWidth=".28" fill="none" strokeLinecap="round"/>
+          <path d="M178,283 Q176,280 174,279" stroke="rgba(255,255,255,0.12)" strokeWidth=".30" fill="none" strokeLinecap="round"/>
+          <path d="M178,283 Q176,286 175,288" stroke="rgba(255,255,255,0.10)" strokeWidth=".28" fill="none" strokeLinecap="round"/>
         </g>
         <ellipse cx="196" cy="310" rx="28" ry="5" fill="rgba(0,0,0,0.06)"/>
       </g>
@@ -193,13 +188,13 @@ export default function MarbledRose({ toName = '', fromName = '', message = '' }
       <path d="M164,118 C147,142 140,164 149,175 C160,179 170,164 164,118Z" fill="none" stroke="#2e1a08" strokeWidth="0.3"/>
       <path d="M164,118 C140,113 121,119 118,134 C121,148 142,149 164,118Z" fill="none" stroke="#2e1a08" strokeWidth="0.3"/>
       <path d="M164,118 C146,94 133,78 121,80 C116,93 127,112 164,118Z" fill="none" stroke="#2e1a08" strokeWidth="0.3"/>
-      <path d="M164,118 C160,100 157,82" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
-      <path d="M164,118 C176,102 188,88" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
-      <path d="M164,118 C180,122 194,128" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
-      <path d="M164,118 C172,134 175,152" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
-      <path d="M164,118 C155,134 152,152" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
-      <path d="M164,118 C149,120 135,126" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
-      <path d="M164,118 C152,102 140,90" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
+      <path d="M164,118 Q160,100 157,82" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
+      <path d="M164,118 Q176,102 188,88" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
+      <path d="M164,118 Q180,122 194,128" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
+      <path d="M164,118 Q172,134 175,152" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
+      <path d="M164,118 Q155,134 152,152" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
+      <path d="M164,118 Q149,120 135,126" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
+      <path d="M164,118 Q152,102 140,90" fill="none" stroke="#2e1a08" strokeWidth=".34" strokeLinecap="round"/>
       <circle cx="164" cy="118" r="5" fill="rgba(235,200,115,0.72)" stroke="#2e1a08" strokeWidth=".85"/>
       <circle cx="164" cy="111" r="1.3" fill="#2e1a08"/>
       <circle cx="170" cy="113" r="1.2" fill="#2e1a08"/>
@@ -211,9 +206,9 @@ export default function MarbledRose({ toName = '', fromName = '', message = '' }
       <circle cx="158" cy="113" r="1.2" fill="#2e1a08"/>
       <path d="M164,118 C159,138 153,152 149,158" fill="none" stroke="#2e1a08" strokeWidth=".75" strokeLinecap="round"/>
       <path d="M164,118 C169,138 175,150 180,156" fill="none" stroke="#2e1a08" strokeWidth=".75" strokeLinecap="round"/>
-      <path d="M164,118 C163,140 163,155" fill="none" stroke="#2e1a08" strokeWidth=".75" strokeLinecap="round"/>
+      <path d="M164,118 Q163,140 163,155" fill="none" stroke="#2e1a08" strokeWidth=".75" strokeLinecap="round"/>
       <path d="M216,158 C223,149 229,143 231,137" stroke="rgba(255,255,255,0.18)" strokeWidth=".4" fill="none" strokeLinecap="round"/>
-      <path d="M223,149 C220,147 218,146" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
+      <path d="M223,149 Q220,147 218,146" stroke="rgba(255,255,255,0.13)" strokeWidth=".31" fill="none" strokeLinecap="round"/>
 
       {/* MESSAGE AREA */}
       <text x="18" y="38" fontFamily="Cormorant Garamond,Georgia,serif" fontSize="13" fontStyle="italic" fill="rgba(46,26,8,.46)">To,</text>
