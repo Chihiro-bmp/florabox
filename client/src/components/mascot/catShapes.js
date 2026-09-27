@@ -27,6 +27,8 @@ export const SIDE = {
   head: 'M56,-116 C54,-132 62,-144 76,-148 L80,-168 L92,-150 C97,-150 101,-150 105,-148 L116,-164 L116,-140 C125,-132 127,-118 120,-108 C113,-99 100,-96 88,-98 C74,-100 58,-104 56,-116 Z',
   tail: 'M-68,-90 C-96,-94 -110,-118 -104,-146 C-100,-164 -88,-170 -80,-163',
   tailLeap: 'M-68,-88 C-100,-90 -126,-84 -150,-94 C-162,-99 -168,-110 -162,-116',
-  // [hipX, hipY, length] — far legs first (drawn behind the body)
-  legs: [[-48, -70, 68], [42, -74, 72], [-40, -68, 68], [50, -74, 72]],
+  // Two-segment legs: [hipX, hipY, bend (+1 knee forward, -1 knee back), upper, lower].
+  // Hind legs are longer so the hock stays bent; front legs stay nearly straight when planted.
+  // Order: far hind, far front, near hind, near front (far pair drawn behind the body).
+  legs: [[-48, -70, 1, 44, 40], [42, -74, -1, 40, 42], [-40, -68, 1, 44, 40], [50, -74, -1, 40, 42]],
 };

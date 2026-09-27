@@ -55,30 +55,34 @@ export function SeatedCat({ rim = false, blink = false, tailRef, pupilRefs, open
   );
 }
 
-/** Side-profile cat, facing +x, in SIDE design coordinates. */
-export function SideCat({ legRefs, tailRef, leapTailRef }) {
-  const leg = ([x, y, len], i) => (
-    <path key={i} ref={legRefs?.[i]} d={`M${x},${y} L${x},${y + len}`}
-      stroke={CAT.ink} strokeWidth="11" strokeLinecap="round" />
+/** Side-profile cat, facing +x, in SIDE design coordinates. Legs are drawn by the animator. */
+export function SideCat({ legRefs, torsoRef, headRef, tailRef, leapTailRef }) {
+  const leg = ([x, y], i) => (
+    <path key={i} ref={legRefs?.[i]} d={`M${x},${y} L${x},0`} fill="none"
+      stroke={i < 2 ? '#2a1a12' : CAT.ink} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
   );
   return (
     <g>
-      {/* Pivot at the tail root (bottom-right of its box) */}
-      <g ref={tailRef} style={{ transformBox: 'fill-box', transformOrigin: '100% 100%' }}>
-        <path d={SIDE.tail} fill="none" stroke={CAT.ink} strokeWidth="7" strokeLinecap="round" />
-      </g>
-      <path ref={leapTailRef} d={SIDE.tailLeap} fill="none" stroke={CAT.ink} strokeWidth="7" strokeLinecap="round" style={{ display: 'none' }} />
       {SIDE.legs.slice(0, 2).map(leg)}
-      <path d={SIDE.body} fill={CAT.ink} />
-      <ellipse cx="-46" cy="-80" rx="24" ry="19" fill={CAT.ink} />
-      <ellipse cx="46" cy="-84" rx="17" ry="17" fill={CAT.ink} />
+      <g ref={torsoRef}>
+        {/* Pivot at the tail root (bottom-right of its box) */}
+        <g ref={tailRef} style={{ transformBox: 'fill-box', transformOrigin: '100% 100%' }}>
+          <path d={SIDE.tail} fill="none" stroke={CAT.ink} strokeWidth="7" strokeLinecap="round" />
+        </g>
+        <path ref={leapTailRef} d={SIDE.tailLeap} fill="none" stroke={CAT.ink} strokeWidth="7" strokeLinecap="round" style={{ display: 'none' }} />
+        <path d={SIDE.body} fill={CAT.ink} />
+        <ellipse cx="-46" cy="-80" rx="24" ry="19" fill={CAT.ink} />
+        <ellipse cx="46" cy="-84" rx="17" ry="17" fill={CAT.ink} />
+        <g ref={headRef}>
+          <path d={SIDE.head} fill={CAT.ink} />
+          <path d="M83,-160 L90,-151 L84,-149 Z" fill={CAT.blush} opacity=".6" />
+          <path d="M97,-124 Q106,-133 115,-124 Q106,-117 97,-124 Z" fill={CAT.jade} />
+          <ellipse cx="108" cy="-124" rx="2.1" ry="4.8" fill={CAT.ink} />
+        </g>
+        <path d="M62,-108 Q74,-99 88,-100" fill="none" stroke={CAT.blush} strokeWidth="3" strokeLinecap="round" />
+        <Blossom x={76} y={-99} scale={0.75} />
+      </g>
       {SIDE.legs.slice(2).map((l, i) => leg(l, i + 2))}
-      <path d={SIDE.head} fill={CAT.ink} />
-      <path d="M83,-160 L90,-151 L84,-149 Z" fill={CAT.blush} opacity=".6" />
-      <path d="M97,-124 Q106,-133 115,-124 Q106,-117 97,-124 Z" fill={CAT.jade} />
-      <ellipse cx="108" cy="-124" rx="2.1" ry="4.8" fill={CAT.ink} />
-      <path d="M62,-108 Q74,-99 88,-100" fill="none" stroke={CAT.blush} strokeWidth="3" strokeLinecap="round" />
-      <Blossom x={76} y={-99} scale={0.75} />
     </g>
   );
 }

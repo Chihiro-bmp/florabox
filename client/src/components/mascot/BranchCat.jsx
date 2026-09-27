@@ -3,12 +3,29 @@ import { SEATED, SIDE } from './catShapes';
 import { SeatedCat, SideCat } from './CatParts';
 
 const SCALE      = 0.2;   // design units → scene units (~43 units tall seated)
-const WALK_SPEED = 34;    // scene units per second
-const LEAP_TIME  = 0.72;  // seconds
+const ACCEL      = 340;   // scene units / s² — how briskly it gets going and slows down
+const STRIDE     = 32;    // half a step, design units: a paw travels 2×STRIDE per stance
+const STEP_LIFT  = 18;    // how high a paw lifts mid-swing, design units
+const CROUCH     = 0.22;  // seconds of wind-up before a leap
+const LEAP_TIME  = 0.62;  // seconds airborne
 const HOP_TIME   = 0.45;
 const FADE_IN    = 0.9;
 
 const rand = (a, b) => a + Math.random() * (b - a);
+const smooth = (v) => v * v * (3 - 2 * v);
+
+// Two-bone IK: joint between hip and foot, bending towards `bend` (+1 forward, -1 back)
+function kneeFor(hx, hy, fx, fy, bend, l1, l2) {
+  let dx = fx - hx, dy = fy - hy;
+  let d = Math.hypot(dx, dy);
+  const max = l1 + l2 - 0.5;
+  if (d > max) { dx *= max / d; dy *= max / d; d = max; fx = hx + dx; fy = hy + dy; }
+  const a = Math.atan2(dy, dx);
+  const b = Math.acos(Math.min(1, Math.max(-1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
+  // Rotating towards -x·bend puts the knee ahead of the hip→paw line (screen x grows forward)
+  const k = a - b * bend;
+  return { kx: hx + Math.cos(k) * l1, ky: hy + Math.sin(k) * l1, fx, fy };
+}
 
 /**
  * The living mascot. Render inside an <svg> group that shares the branches'
@@ -28,6 +45,7 @@ export default function BranchCat({ perches, active }) {
   const openEyes  = useRef(null);
   const shutEyes  = useRef(null);
   const leg0 = useRef(null), leg1 = useRef(null), leg2 = useRef(null), leg3 = useRef(null);
+  const torso = useRef(null), head = useRef(null);
   const sideTail  = useRef(null);
   const leapTail  = useRef(null);
   const hopRequest = useRef(false);
@@ -59,7 +77,7 @@ export default function BranchCat({ perches, active }) {
 
     const s = {
       mode: 'sit', perch: 0, t: (perches[0].from + perches[0].to) / 2,
-      timer: rand(2.5, 5), target: 0, dir: 1, phase: 0,
+      timer: rand(2.5, 5), target: 0, phase: 0, vel: 0, topSpeed: 0,
       nextBlink: rand(1.5, 4), blinkLeft: 0,
       nextFlick: rand(3, 7), flickT: -1,
       leap: null, hopT: -1, age: 0,
@@ -82,34 +100,76 @@ export default function BranchCat({ perches, active }) {
 
     // (vx, vy) is the travel direction. The figure faces +x, so when heading left
     // it is mirrored and rotated to align with the reversed travel vector.
-    const placeSide = (x, y, vx, vy) => {
+    const placeSide = (x, y, vx, vy, maxTilt = 90) => {
       const face = vx < 0 ? -1 : 1;
-      const ang = Math.atan2(vy * face, vx * face) * 180 / Math.PI;
+      let ang = Math.atan2(vy * face, vx * face) * 180 / Math.PI;
+      ang = Math.max(-maxTilt, Math.min(maxTilt, ang));
       sideRef.current.setAttribute('transform',
         `translate(${x},${y}) rotate(${ang}) scale(${SCALE * face},${SCALE})`);
     };
 
-    const setLegs = (angles) => {
-      SIDE.legs.forEach(([hx, hy], i) => {
-        legs[i].current.setAttribute('transform', `rotate(${angles[i]} ${hx} ${hy})`);
+    // feet: [[x, y] × 4] in side-pose coords; bob lifts the hips with the torso
+    const setLegs = (feet, bob = 0) => {
+      SIDE.legs.forEach(([hx, hy, bend, l1, l2], i) => {
+        const hipY = hy + bob;
+        const { kx, ky, fx, fy } = kneeFor(hx, hipY, feet[i][0], feet[i][1], bend, l1, l2);
+        legs[i].current.setAttribute('d', `M${hx},${hipY} L${kx.toFixed(1)},${ky.toFixed(1)} L${fx.toFixed(1)},${fy.toFixed(1)}`);
       });
     };
+
+    const setTorso = (bob, pitch, nod, tail) => {
+      torso.current.setAttribute('transform', `translate(0,${bob.toFixed(2)}) rotate(${pitch.toFixed(2)} 0 -90)`);
+      head.current.setAttribute('transform', `rotate(${nod.toFixed(2)} 62 -112)`);
+      sideTail.current.style.transform = `rotate(${tail.toFixed(1)}deg)`;
+    };
+
+    // Trot: diagonal pairs move together (far hind + near front, far front + near hind).
+    // Each paw is planted for half the cycle (sliding back as the body passes over it)
+    // and swings forward through an arc for the other half.
+    const PAIR = [0, Math.PI, Math.PI, 0];
+    const gaitFeet = (phase) => SIDE.legs.map(([hx], i) => {
+      const u = ((phase + PAIR[i]) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      const rest = hx + (i % 2 ? 6 : -2);
+      if (u < Math.PI) return [rest + STRIDE * (1 - 2 * u / Math.PI), 0];
+      const v = (u - Math.PI) / Math.PI;
+      return [rest - STRIDE + 2 * STRIDE * smooth(v), -STEP_LIFT * Math.sin(v * Math.PI)];
+    });
+    const standFeet = SIDE.legs.map(([hx], i) => [hx + (i % 2 ? 6 : -2), 0]);
 
     const pickNext = () => {
       const here = perches[s.perch];
       const roll = Math.random();
       if (reduced) { s.timer = rand(4, 8); return; }
-      if (roll < 0.5 && here.walk) {
+      // A leap needs somewhere to go sideways, or it reads as a vertical launch
+      let leapTo = null;
+      if (roll >= 0.5 && roll < 0.8 && perches.length > 1) {
+        const from = pointAt(s.perch, s.t);
+        const others = perches.map((_, i) => i).filter(i => i !== s.perch);
+        for (let tries = 0; tries < 8 && !leapTo; tries++) {
+          const to = others[Math.floor(Math.random() * others.length)];
+          const toT = rand(perches[to].from, perches[to].to);
+          const p = pointAt(to, toT);
+          if (Math.abs(p.x - from.x) >= 45) leapTo = { perch: to, t: toT, p, from };
+        }
+      }
+      if ((roll < 0.5 || (roll < 0.8 && !leapTo)) && here.walk) {
         let target = rand(here.from, here.to);
         if (Math.abs(target - s.t) < 0.12) target = s.t > (here.from + here.to) / 2 ? here.from + 0.04 : here.to - 0.04;
-        s.mode = 'walk'; s.target = target; s.dir = 0;
+        s.mode = 'walk'; s.target = target; s.vel = 0;
+        // Sometimes a saunter, sometimes a purposeful trot
+        s.topSpeed = Math.random() < 0.4 ? rand(130, 160) : rand(85, 105);
+        const p = pointAt(s.perch, s.t), dir = Math.sign(target - s.t) || 1;
+        placeSide(p.x, p.y, p.dx * dir, p.dy * dir);
+        setLegs(standFeet);
+        setTorso(0, 0, 0, 0);
         showSeated(false);
-      } else if (roll < 0.8 && perches.length > 1) {
-        const others = perches.map((_, i) => i).filter(i => i !== s.perch);
-        const to = others[Math.floor(Math.random() * others.length)];
-        const toT = rand(perches[to].from, perches[to].to);
+      } else if (leapTo) {
         s.mode = 'leap';
-        s.leap = { from: pointAt(s.perch, s.t), to: pointAt(to, toT), perch: to, t: toT, u: 0 };
+        s.leap = { from: leapTo.from, to: leapTo.p, perch: leapTo.perch, t: leapTo.t, u: -CROUCH / LEAP_TIME };
+        // Pose before revealing, so no stale frame from the previous move shows
+        placeSide(leapTo.from.x, leapTo.from.y, leapTo.p.x - leapTo.from.x, 0);
+        setLegs(standFeet);
+        setTorso(0, 0, 0, 0);
         showSeated(false);
         leapTail.current.style.display = '';
         sideTail.current.style.display = 'none';
@@ -189,21 +249,38 @@ export default function BranchCat({ perches, active }) {
       } else if (s.mode === 'walk') {
         const L = lengths[s.perch];
         const dir = Math.sign(s.target - s.t) || 1;
-        s.t += (dir * WALK_SPEED * dt) / L;
-        if ((dir > 0 && s.t >= s.target) || (dir < 0 && s.t <= s.target)) {
+        // Ease in, cruise, ease out so it arrives rather than stops dead
+        const remaining = Math.abs(s.target - s.t) * L;
+        const want = Math.min(s.topSpeed, Math.sqrt(2 * ACCEL * remaining));
+        s.vel += Math.max(-ACCEL * dt, Math.min(ACCEL * dt, want - s.vel));
+        const step = Math.max(s.vel, 6) * dt;
+        s.t += (dir * step) / L;
+        if ((dir > 0 && s.t >= s.target) || (dir < 0 && s.t <= s.target) || remaining < 0.5) {
           s.t = s.target;
           sitDown();
         } else {
           const p = pointAt(s.perch, s.t);
           placeSide(p.x, p.y, p.dx * dir, p.dy * dir);
-          s.phase += dt * 9;
-          const a = Math.sin(s.phase) * 22;
-          setLegs([a, -a, -a, a]);
-          sideTail.current.style.transform = `rotate(${Math.sin(s.phase / 2) * 5}deg)`;
+          // Leg cycle is driven by distance, so planted paws don't skate
+          s.phase += (Math.PI * (step / SCALE)) / (2 * STRIDE);
+          const pace = Math.min(1.4, s.vel / 80);
+          const bob = -4 * pace * Math.abs(Math.cos(s.phase));
+          setLegs(gaitFeet(s.phase), bob);
+          setTorso(bob, 1.6 * pace * Math.sin(s.phase), 2.2 * pace * Math.sin(2 * s.phase + 0.8),
+            -6 * pace + 7 * Math.sin(s.phase * 0.5));
         }
       } else if (s.mode === 'leap') {
         const lp = s.leap;
         lp.u = Math.min(1, lp.u + dt / LEAP_TIME);
+        if (lp.u < 0) {
+          // Wind-up: crouch low, wiggle, eyes on the landing spot
+          const c = smooth(1 + lp.u / (CROUCH / LEAP_TIME));
+          placeSide(lp.from.x, lp.from.y, lp.to.x - lp.from.x, 0);
+          setLegs(standFeet, 14 * c);
+          setTorso(14 * c, -4 * c, 4 * c, 8 * Math.sin(now / 45) * c);
+          raf = requestAnimationFrame(tick);
+          return;
+        }
         const u = lp.u;
         const h = 36 + Math.abs(lp.to.x - lp.from.x) * 0.15;
         const x = lp.from.x + (lp.to.x - lp.from.x) * u;
@@ -211,10 +288,17 @@ export default function BranchCat({ perches, active }) {
         const vx = (lp.to.x - lp.from.x);
         const vy = (lp.to.y - lp.from.y) - h * 4 * (1 - 2 * u);
         const vl = Math.hypot(vx, vy) || 1;
-        placeSide(x, y, vx / vl, (vy / vl) * 0.6);
-        // Crouch → stretch out → reach for the landing
+        placeSide(x, y, vx / vl, (vy / vl) * 0.6, 28);
+        // Push off with the hind legs → stretch out → front paws reach for the landing
         const stretch = Math.sin(u * Math.PI);
-        setLegs([-70 * stretch - 10, -64 * stretch - 10, 72 * stretch + 10, 66 * stretch + 10]);
+        const tuck = 1 - stretch;
+        setLegs([
+          [-48 - 60 * stretch, -8 - 30 * tuck],
+          [42 + 58 * stretch, -20 - 20 * stretch],
+          [-40 - 56 * stretch, -4 - 30 * tuck],
+          [50 + 62 * stretch, -14 - 22 * stretch],
+        ]);
+        setTorso(0, 0, -4 * stretch, 0);
         if (u >= 1) {
           s.perch = lp.perch; s.t = lp.t;
           s.hopT = 0.5; // land with a little settle
@@ -250,7 +334,7 @@ export default function BranchCat({ perches, active }) {
             <SeatedCat tailRef={seatTail} pupilRefs={[pupil0, pupil1]} openEyesRef={openEyes} closedEyesRef={shutEyes} />
           </g>
           <g ref={sideRef} style={{ display: 'none' }}>
-            <SideCat legRefs={[leg0, leg1, leg2, leg3]} tailRef={sideTail} leapTailRef={leapTail} />
+            <SideCat legRefs={[leg0, leg1, leg2, leg3]} torsoRef={torso} headRef={head} tailRef={sideTail} leapTailRef={leapTail} />
           </g>
         </g>
       )}
