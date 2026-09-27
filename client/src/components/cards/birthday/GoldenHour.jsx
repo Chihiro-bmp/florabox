@@ -2,7 +2,7 @@ import { useId } from 'react';
 
 export default function GoldenHour({ toName = '', fromName = '', message = '' }) {
   const uid = useId().replace(/:/g, '');
-  const msgLines = message ? message.match(/.{1,28}(\s|$)/g)?.map(s => s.trim()).filter(Boolean).slice(0, 3) ?? [] : [];
+  const msgLines = message ? message.match(/.{1,28}(\s|$)/g)?.map(s => s.trim()).filter(Boolean).slice(0, 4) ?? [] : [];
 
   return (
     <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', width: '100%', height: '100%' }}>

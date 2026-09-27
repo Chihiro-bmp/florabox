@@ -10,15 +10,15 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors({ origin: 'http://localhost:5173' }))
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173' }))
 app.use(express.json())
 
 app.use('/api/cards', cardsRouter)
 app.use('/api/bouquets', bouquetsRouter)
 app.use('/api/users', usersRouter)
 
-app.get('/api/health', (req, res) => res.json({ status: 'Florabox is alive 🌸' }))
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 
 app.listen(PORT, () => {
-  console.log(`🌿 Florabox server running on http://localhost:${PORT}`)
+  console.log(`Florabox server running on http://localhost:${PORT}`)
 })
