@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 const NATIVE_W = 300;
 const NATIVE_H = 400;
+const DEFAULT_SHADOW = '0 0 0 1px rgba(245,237,224,0.08), 0 0 60px 10px rgba(201,168,76,0.06), 0 30px 70px rgba(0,0,0,0.6)';
 
 // Renders a card at its native 300×400 and scales it to fit the parent box
-export default function ScaledCard({ card, toName, fromName, message }) {
+export default function ScaledCard({ card, toName, fromName, message, shadow = DEFAULT_SHADOW }) {
   const boxRef = useRef(null);
   const [scale, setScale] = useState(1);
 
@@ -34,7 +35,7 @@ export default function ScaledCard({ card, toName, fromName, message }) {
         transform: 'translate(-50%, -50%)',
         borderRadius: '2px',
         overflow: 'hidden',
-        boxShadow: '0 0 0 1px rgba(245,237,224,0.08), 0 0 60px 10px rgba(201,168,76,0.06), 0 30px 70px rgba(0,0,0,0.6)',
+        boxShadow: shadow,
       }}>
         <div style={{
           width: NATIVE_W,

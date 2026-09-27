@@ -823,7 +823,7 @@ export default function MyCreations() {
         {/* View card */}
         <button
           aria-label="View this card"
-          onClick={() => transitionTo(`/card/view/${CARDS[selectedIdx]?.id}`)}
+          onClick={() => transitionTo(`/view/${CARDS[selectedIdx]?.id}`)}
           style={{
             background: 'none',
             border: `0.5px solid ${ROSE_BORDER}`,
