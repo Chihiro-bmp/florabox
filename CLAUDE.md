@@ -1,5 +1,4 @@
 # Florabox — Claude Code Project Brief
-*Paste this entire document as your first message to Claude Code*
 
 ---
 
@@ -16,8 +15,8 @@
 | Frontend | React + Vite + Tailwind CSS + Framer Motion |
 | Backend | Express.js + PostgreSQL on Neon |
 | Deployment | Vercel |
-| Fonts | Cormorant Garamond (headings) + Jost (body) |
-| Animation | GSAP + ScrollTrigger (card gallery) + Framer Motion (UI) |
+| Fonts | Cormorant Garamond (headings) + Jost (body) + Share Tech Mono (mono) |
+| Animation | Framer Motion (UI), Web Animations API (gallery track), canvas RAF loops (petals, Mineral Moon, reveal) |
 
 ---
 
@@ -25,8 +24,10 @@
 
 ### Colours
 ```
---ink-brown:      #1e1008   (primary text, borders, gallery background)
---ink-brown-deep: #2a1410   (gallery gradient end)
+--ink-brown:      #1e1008   (primary text, borders)
+--ink-brown-deep: #2a1410   (deep accents)
+--gallery-dark:   #080709   (gallery / compose room background)
+--gold:           rgba(201,168,76,.88)  (gallery accents, selection ring)
 --warm-brown:     #3d2510   (buttons, accents)
 --blush:          #c97888   (highlights, Love cards)
 --parchment:      #f5ede0   (background base)
@@ -59,82 +60,44 @@
 ## What's Already Built
 
 - ✅ Project scaffolded — React + Vite + Tailwind + Express + Neon schema
-- ✅ Home page — fully designed, mobile responsive. Parchment + ink blossom SVG background, Ghost of Tsushima petal canvas animation, Cormorant Garamond title, three action cards with SVG icons
+- ✅ Home page (`/`) — parchment + ink blossom SVG background, Ghost of Tsushima petal canvas animation, three action cards with SVG icons
+- ✅ Card gallery (`/gallery`) — hero + dark gallery room (see below)
+- ✅ Preset cards — Birthday: Marbled Rose, Golden Hour, Mineral Moon; Love: Wisteria
+- ✅ Preset compose page (`/card/new?preset=<id>`) — Path A: live preview, To/From/message, music picker, Send → shareable link
+- ✅ Recipient view (`/view/:id`) — envelope reveal, themed reveal animation (botanical + cosmic), card, "Send your own Florabox"
+- ✅ Card save/retrieve API (`POST /api/cards`, `GET /api/cards/:id`) + schema in `server/schema.sql`
+- Placeholder only: craftsman builder (`/card/new` without a preset), bouquet builder (`/bouquet/new`), My Creations (`/u/:username`, layout built on dummy data)
 
 ---
 
-## Card Gallery — Horizontal Scroll Track
+## Card Gallery — as built
 
-### Visual Design
-- **Background:** Deep ink gradient — `#1e1008` → `#2a1410`
-- This creates a deliberate contrast moment: user scrolls from parchment home page into this dark archive room. The parchment cards glow against the dark background.
-- **No occasion tabs** — the cards speak for themselves, presented as a pure gallery
+`pages/CardGalleryPage.jsx` stacks two layers in a `200dvh` wrapper: `GalleryHero` (absolute, on top) scrolls away like a curtain to uncover `CardGallery` (sticky, `100dvh`) underneath.
 
-### Desktop Behaviour (≥768px) — GSAP ScrollTrigger
-```
-- Section is PINNED while user scrolls vertically
-- Horizontal track of cards TRANSLATES leftward, scrubbed 1:1 with scroll
-- Cards slide past like a cinematic art gallery
-- Reference aesthetic: camillemormal.com sliding image track
-```
+### GalleryHero
+- Title and scattered quotes over an interactive gold `+` grid (`PatternCanvas.jsx` — canvas, cursor spotlight)
+- Grain + washi texture overlays; delayed scroll cue; cursor effects off on touch (`(hover: none)`)
 
-Implementation approach:
-```js
-gsap.to('.cards-track', {
-  x: () => -(trackWidth - viewportWidth),
-  ease: 'none',
-  scrollTrigger: {
-    trigger: '.gallery-section',
-    pin: true,
-    scrub: 1,
-    start: 'top top',
-    end: () => `+=${trackWidth - viewportWidth}`,
-  }
-});
-```
-
-### Card Name Reveal
-- Each card has a distinct name (see card list below)
-- As a card centres in the viewport, its name fades and slides in — Cormorant Garamond italic, large, cream coloured
-- Name fades out as card leaves centre
-- Name sits below the card with generous spacing
-- Exactly like the name reveals on camillemormal.com
-
-### Navigation
-- Two `+` icon buttons (SVG fine linework — not emoji) at vertical centre, left and right edges of screen
-- Left `+` → snaps to previous card
-- Right `+` → snaps to next card
-- Smooth GSAP snap animation between cards
-- On hover: subtle opacity increase only
-
-### Card Click → Preview Mode
-When user clicks a card:
-1. Selected card comes into focused view (subtle scale or border highlight)
-2. **Bottom preview strip** slides up — small thumbnails of all other cards in a horizontal row
-3. Clicking a thumbnail switches the main selection
-4. A **"Use this card →"** CTA button appears above the preview strip
-5. All animations driven by Framer Motion
-
-### Mobile Behaviour (≤767px)
-- Native horizontal touch scroll: `overflow-x: scroll`, `scroll-snap-type: x mandatory`
-- Each card snaps to centre: `scroll-snap-align: center`
-- Card name reveals on snap (IntersectionObserver)
-- `+` buttons hidden — swipe gesture only
-- Bottom preview strip works on tap
-- CTA button visible after tap-to-select
+### CardGallery
+- **Background:** near-black `#080709` with grain + washi overlays — the parchment cards glow against it. No occasion tabs.
+- **Track:** horizontal row of live card components. Moved by mouse drag / touch drag (not scroll-scrubbed); position is a `translateX(%)` driven by the Web Animations API with dynamic clamp bounds that centre the first/last card. Card size is responsive and keeps the 3:4 ratio.
+- **Select:** click / tap a card → track snaps it to centre, it gets a gold ring + glow, and an expanded overlay shows it large with its name in the card's own `nameColor` / `nameFont`. Scroll-wheel up over a card also expands; wheel down closes.
+- **Chrome while a card is selected:** `+` prev/next buttons (fine-line SVG, rotate on click), `01 / 04` counter, "back" button, and the **"Use this card"** CTA → `/card/new?preset=<id>`. With nothing selected, a "home" button shows instead.
+- Honours `prefers-reduced-motion`.
+- Card metadata lives in `data/cards.js`: `id`, `name`, `occasion`, `theme` (drives the reveal animation), `Component`, `nameColor`, `nameFont`, `nameItalic`, and `messageLayout` (`{ chars, lines }` — must match the card's own word-wrap).
 
 ---
 
-## Preset Card List — Birthday (3 cards, HTML files ready)
+## Preset Card List — Birthday (3 cards, built)
 
-HTML files located in `src/cards/birthday/`. Convert each to a React component.
+Original HTML designs are in `client/src/cards/`; the React components are in `client/src/components/cards/birthday/`.
 
 ### Birthday 1 — "Marbled Rose"
 - **File:** `florabox_marbled_rose_v7.html`
 - **Style:** Ebru marbled paper background + botanical rose illustration
 - **Background:** Warm cream `#f2e4cc` with blush pink + crimson marbled pools, blue-grey veining, ink spatter dots
 - **Illustration:** Ink line botanical rose rising bottom-right. Compound rose leaves (Rosa canina). Blush wash inside petals. Gradient green leaves with white midrib highlights and shadow ellipses. Gradient stems.
-- **Details:** Rosa canina specimen label bottom-centre. To/From dashed lines top-left.
+- **Details:** Rosa canina specimen label bottom-centre. To/message lines top-left. From is signature-style: name on the dashed line, "From," beneath (intentional).
 - **Feel:** Warm, classical, aged botanical print
 
 ### Birthday 2 — "Golden Hour"
@@ -159,13 +122,16 @@ HTML files located in `src/cards/birthday/`. Convert each to a React component.
 
 ---
 
-## Remaining Occasions (Architecture Only — Not Yet Designed)
+## Love — Wisteria (built)
+- `components/cards/love/WisteriaCard.jsx` — full-bleed painted background (`public/cards/wisteria-bg.jpg`) with a tiled roof and hanging wisteria; To / message / From overlaid in Cormorant
 
-Build the component architecture to support these now so they slot in cleanly later. Each gets 2 cards.
+## Remaining Occasions (Not Yet Designed)
+
+Add each card to `components/cards/<occasion>/` and register it in `data/cards.js` — the gallery, compose page and recipient view pick it up automatically. Each gets 2 cards.
 
 | Occasion | Cards |
 |----------|-------|
-| Love / Romance | 2 |
+| Love / Romance | 1 more (Wisteria done) |
 | Friendship | 2 |
 | Congratulations | 2 |
 | Thank You | 2 |
@@ -178,14 +144,14 @@ Total: 15 preset cards when complete.
 
 ## Two User Paths After Gallery
 
-### Path A — Preset Card
+### Path A — Preset Card ✅ (`components/card-compose/`)
 1. User selects preset from gallery
 2. Card is **locked** — no design changes
-3. User fills: optional To, optional From, personal message
-4. Selects music track
-5. Hits Send → send animation → shareable link
+3. User fills: optional To, optional From (≤40 chars), personal message (≤140 chars, and must fit the card's `messageLayout` — Send is disabled otherwise)
+4. Selects music track (`data/music.js` — placeholder list; set each track's `src` once audio is in `public/music/`)
+5. Hits Send → saved via API → "Your card is on its way" with the shareable link + copy (full-screen send animation not built yet)
 
-### Path B — Custom "Craftsman" Builder
+### Path B — Custom "Craftsman" Builder (not built)
 Entry: CTA button *"or become a craftsman and create your own"* in the gallery.
 
 **Layout:**
@@ -209,7 +175,7 @@ Entry: CTA button *"or become a craftsman and create your own"* in the gallery.
 
 ## Send Moment & Recipient Experience
 
-### Send Animation (Full-Screen, Theme-Based)
+### Send Animation (Full-Screen, Theme-Based) — planned
 | Theme | Animation |
 |-------|-----------|
 | Nature / Botanical | Leaves swirl upward, card lifts into wind |
@@ -224,14 +190,14 @@ Entry: CTA button *"or become a craftsman and create your own"* in the gallery.
 
 After animation: card shown full-screen, unique link below, copy button.
 
-### Recipient Flow
-1. Envelope opens (SVG animation)
-2. Same themed animation plays
-3. Card fades in, music plays (user gesture)
+### Recipient Flow ✅ (`pages/CardView.jsx`, `components/card-viewer/`)
+1. Envelope opens (SVG animation) — parchment room, blush wax seal; tap → seal lifts, flap folds, letter slides out
+2. Themed animation plays — `RevealAnimation.jsx` has a theme registry; built so far: `botanical` (petals/leaves drift up), `cosmic` (stars streak from centre). Add new themes there.
+3. Card fades in, music plays (the opening tap is the user gesture), mute toggle
 4. Subtle bottom CTA: *"Send your own Florabox"*
 
 ### Unique Link
-- Format: `florabox.app/card/[uniqueId]`
+- Format: `florabox.app/view/[uniqueId]` (route `/view/:id`)
 - No account needed
 - Data stored in Neon PostgreSQL
 
@@ -239,10 +205,13 @@ After animation: card shown full-screen, unique link below, copy button.
 
 ## Database Schema
 
+Source of truth: `server/schema.sql` (idempotent — safe to re-run in the Neon SQL editor; also migrates the original cards table). Also has `users` and `bouquets` tables.
+
 ```sql
 cards (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type        TEXT,        -- 'preset' | 'custom'
+  user_id     INTEGER REFERENCES users(id),  -- optional, for My Creations
+  type        TEXT NOT NULL DEFAULT 'preset', -- 'preset' | 'custom'
   preset_id   TEXT,        -- e.g. 'birthday-marbled-rose'
   to_name     TEXT,
   from_name   TEXT,
@@ -257,77 +226,69 @@ cards (
 
 ---
 
-## Suggested Component Architecture
+## Component Architecture
 
 ```
-src/
+client/src/
   components/
+    TransitionCurtain.jsx     -- page transition overlay (with context/TransitionContext)
     card-gallery/
-      CardGallery.jsx         -- GSAP horizontal scroll track
-      CardTrack.jsx           -- pinned scrolling container
-      CardItem.jsx            -- individual card in track
-      CardNameReveal.jsx      -- Cormorant name fades in/out on centre
-      CardPreviewStrip.jsx    -- bottom thumbnails on click
-      NavigationButtons.jsx   -- + left / + right SVG icons
-    card-builder/
-      CardBuilder.jsx         -- builder shell
-      BuilderToolbar.jsx      -- floating bottom toolbar
-      CardCanvas.jsx          -- live preview
-      StickerPicker.jsx       -- sticker packs + drag source
-      BackgroundPicker.jsx    -- background templates
-      MessageInput.jsx        -- text area + font picker
+      CardGallery.jsx         -- drag track, selection, expanded card, nav, CTA
+      GalleryHero.jsx         -- hero that scrolls away over the gallery
+      PatternCanvas.jsx       -- interactive gold + grid behind the hero
+    card-compose/             -- Path A
+      PresetComposer.jsx      -- compose form + live preview + send
+      ScaledCard.jsx          -- renders a 300x400 card scaled to fit its box
       MusicPicker.jsx         -- curated playlist
-    card-viewer/
-      CardViewer.jsx          -- recipient view
+      SendSuccess.jsx         -- shareable link + copy
+      tokens.js               -- dark-room colour tokens
+    card-viewer/              -- recipient
       EnvelopeReveal.jsx      -- envelope SVG animation
-      SendAnimation.jsx       -- themed send/reveal animation
+      RevealAnimation.jsx     -- themed canvas reveal (theme registry)
+    card-builder/             -- Path B, to be added (toolbar, canvas, stickers, backgrounds...)
     cards/
-      birthday/
-        MarbledRose.jsx
-        GoldenHour.jsx
-        MineralMoon.jsx
-      love/                   -- to be added
-      friendship/             -- to be added
-      congratulations/        -- to be added
-      thank-you/              -- to be added
-      sympathy/               -- to be added
-      just-because/           -- to be added
+      birthday/  MarbledRose.jsx  GoldenHour.jsx  MineralMoon.jsx
+      love/      WisteriaCard.jsx
+      friendship/ congratulations/ thank-you/ sympathy/ just-because/  -- to be added
+  data/
+    cards.js                  -- preset card registry
+    music.js                  -- playlist
+  lib/
+    api.js                    -- createCard / getCard (VITE_API_URL base)
+    wrapMessage.js            -- word-wrap + fit check shared with the cards
   pages/
-    Home.jsx                  -- ✅ built
-    CardGalleryPage.jsx       -- card selection
-    BuilderPage.jsx           -- custom builder
-    ViewCardPage.jsx          -- recipient link view
+    Home.jsx                  -- /
+    CardGalleryPage.jsx       -- /gallery
+    CardBuilder.jsx           -- /card/new (?preset= → PresetComposer; none → craftsman placeholder)
+    CardView.jsx              -- /view/:id
+    BouquetBuilder.jsx        -- /bouquet/new (placeholder)
+    MyCreations.jsx           -- /u/:username (dummy data)
+server/
+  index.js  db.js  schema.sql
+  routes/ cards.js  bouquets.js  users.js
 ```
 
 ---
 
-## Immediate Build Tasks
+## Next Build Tasks
 
-1. **Convert** Birthday HTML files to React components
-   - `MarbledRose.jsx` — pure SVG, accepts `toName` `fromName` `message` props
-   - `GoldenHour.jsx` — pure SVG, same props
-   - `MineralMoon.jsx` — canvas animated, same props + RAF cleanup on unmount
-
-2. **Build** `CardGallery.jsx`
-   - GSAP ScrollTrigger pin + scrub horizontal track
-   - Card name reveal on centre
-   - `+` navigation snap buttons
-   - Click → bottom preview strip + CTA
-   - Mobile: touch scroll + snap
-
-3. **Wire routing** — Home → CardGallery → Builder / Viewer
-
-4. **Set up** card save/retrieve API + Neon schema
+1. **Craftsman builder** (Path B) at `/card/new` — plus the "or become a craftsman" CTA in the gallery
+2. **Full-screen send animation** after Send, reusing the `RevealAnimation` theme registry
+3. **More presets** — remaining occasions; add reveal themes as new card themes appear
+4. **Music** — real audio files in `public/music/`, set `src` in `data/music.js`
+5. **Bouquet builder** and **My Creations** on real data
 
 ---
 
 ## Important Technical Notes
 
-- Always clean up `requestAnimationFrame` and GSAP instances in `useEffect` cleanup
+- Always clean up `requestAnimationFrame`, listeners and running animations in `useEffect` cleanup
 - Mineral Moon uses continuous RAF — must cancel on unmount: `return () => cancelAnimationFrame(raf)`
-- Register GSAP plugin: `gsap.registerPlugin(ScrollTrigger)`
-- Call `ScrollTrigger.refresh()` after layout changes
-- Calculate gallery track width dynamically — never hardcode
+- Calculate gallery track bounds dynamically — never hardcode
+- GSAP is installed but not used anywhere; don't assume it's wired up
+- A card's `messageLayout` in `data/cards.js` must match the wrap width / line count inside the card component
+- ESLint reports `'motion' is defined but never used` for Framer Motion's `<motion.x>` — a known false positive of the current config
+- Server: `CLIENT_ORIGIN` sets the CORS origin; `DATABASE_URL` is the Neon connection string
 - All card components self-contained — no global style leakage
 - Cards render natively at 300×400px, scale via CSS `transform: scale()` for display
 - Use `will-change: transform` on the card track for GPU compositing
